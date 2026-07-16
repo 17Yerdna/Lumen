@@ -22,6 +22,25 @@ Future<void> initializeBackend() async {
   );
 }
 
+Future<void> deleteRemoteAccount() async {
+  final session = supabaseClient?.auth.currentSession;
+  if (!isSupabaseConfigured || session == null) {
+    throw StateError('No hay una cuenta conectada.');
+  }
+  final response = await http.post(
+    Uri.parse('$supabaseUrl/functions/v1/delete-account'),
+    headers: {
+      'apikey': supabasePublishableKey,
+      'Authorization': 'Bearer ${session.accessToken}',
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  );
+  if (response.statusCode != 200) {
+    throw StateError(_errorMessage(response.body, response.statusCode));
+  }
+}
+
 class AssistantPassage {
   const AssistantPassage({required this.reference, required this.text});
 

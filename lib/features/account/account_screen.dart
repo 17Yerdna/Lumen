@@ -1,13 +1,13 @@
 part of '../../screens.dart';
 
-class AccountScreen extends StatefulWidget {
+class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
 
   @override
-  State<AccountScreen> createState() => _AccountScreenState();
+  ConsumerState<AccountScreen> createState() => _AccountScreenState();
 }
 
-class _AccountScreenState extends State<AccountScreen> {
+class _AccountScreenState extends ConsumerState<AccountScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool busy = false;
@@ -45,6 +45,63 @@ class _AccountScreenState extends State<AccountScreen> {
       }
     } catch (error) {
       message = 'No se pudo completar: $error';
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final confirmation = TextEditingController();
+    var matches = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Eliminar cuenta definitivamente'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Se eliminarán tu cuenta, progreso, notas y consultas. '
+                'Esta acción no se puede deshacer. Escribe ELIMINAR.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: confirmation,
+                autofocus: true,
+                onChanged: (value) =>
+                    setDialogState(() => matches = value.trim() == 'ELIMINAR'),
+                decoration: const InputDecoration(labelText: 'Confirmación'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: matches ? () => Navigator.pop(context, true) : null,
+              child: const Text('Eliminar definitivamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+    confirmation.dispose();
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      busy = true;
+      message = null;
+    });
+    try {
+      await deleteRemoteAccount();
+      await ref.read(databaseProvider).clearPersonalData();
+      await supabaseClient?.auth.signOut();
+      if (mounted) context.go('/');
+    } catch (error) {
+      if (mounted) setState(() => message = 'No se pudo eliminar: $error');
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -104,6 +161,19 @@ class _AccountScreenState extends State<AccountScreen> {
                                       ? null
                                       : () => client.auth.signOut(),
                                   child: const Text('Cerrar sesión'),
+                                ),
+                                const SizedBox(height: 10),
+                                TextButton.icon(
+                                  onPressed: busy ? null : deleteAccount,
+                                  icon: const Icon(
+                                    Icons.delete_forever_outlined,
+                                  ),
+                                  label: const Text('Eliminar cuenta'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.error,
+                                  ),
                                 ),
                               ],
                             ),

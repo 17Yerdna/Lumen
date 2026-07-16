@@ -26,6 +26,10 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _AccountSummary(),
           const SizedBox(height: 22),
+          _DataExportCard(
+            onExport: (markdown) => _exportData(context, ref, markdown),
+          ),
+          const SizedBox(height: 22),
           _ProfileSummary(stats: stats, noteCount: notes.length),
           const SizedBox(height: 22),
           Card(
@@ -51,6 +55,77 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _DataExportCard extends StatelessWidget {
+  const _DataExportCard({required this.onExport});
+
+  final ValueChanged<bool> onExport;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Tus datos', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
+          const Text('Guarda una copia portable de tu actividad y notas.'),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => onExport(false),
+                icon: const Icon(Icons.data_object_rounded),
+                label: const Text('Exportar JSON'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => onExport(true),
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('Exportar Markdown'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _exportData(
+  BuildContext context,
+  WidgetRef ref,
+  bool markdown,
+) async {
+  final extension = markdown ? 'md' : 'json';
+  final location = await getSaveLocation(
+    suggestedName: 'lumen-biblia-export.$extension',
+    acceptedTypeGroups: [
+      XTypeGroup(
+        label: markdown ? 'Markdown' : 'JSON',
+        extensions: [extension],
+      ),
+    ],
+  );
+  if (location == null) return;
+  final database = ref.read(databaseProvider);
+  final content = markdown
+      ? await database.exportUserDataMarkdown()
+      : await database.exportUserDataJson();
+  final file = XFile.fromData(
+    Uint8List.fromList(utf8.encode(content)),
+    mimeType: markdown ? 'text/markdown' : 'application/json',
+    name: 'lumen-biblia-export.$extension',
+  );
+  await file.saveTo(location.path);
+  if (context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Exportación guardada')));
   }
 }
 

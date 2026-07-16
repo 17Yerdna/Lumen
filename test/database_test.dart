@@ -68,6 +68,26 @@ void main() {
       (await database.watchAssistantConversations().first).single.answer,
       'Una explicación guardada.',
     );
+
+    final export = jsonDecode(await database.exportUserDataJson());
+    expect(export['format'], 'lumen-biblia-export-v1');
+    expect(export['settings']['daily_goal'], '12');
+    expect(export['reading_activity'], hasLength(1));
+    expect(export['notes'].single['reference'], 'Juan 3:16–17');
+    expect(export['assistant_conversations'].single['question'], 'Explícalo.');
+    final markdown = await database.exportUserDataMarkdown();
+    expect(markdown, contains('# Exportación de Lumen Biblia'));
+    expect(markdown, contains('Juan 3:16–17'));
+    expect(markdown, contains('Una explicación guardada.'));
+
+    await database.clearPersonalData();
+    expect(await database.watchReadingActivity().first, isEmpty);
+    expect(await database.watchNotes().first, isEmpty);
+    expect(await database.watchPreferences().first, isEmpty);
+    expect(await database.watchAssistantConversations().first, isEmpty);
+    expect(await database.pendingSyncItems(), isEmpty);
+    expect(await database.getSetting('daily_goal'), isNull);
+    expect(await database.search('Juan 3'), hasLength(36));
     await database.close();
   });
 }

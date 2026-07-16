@@ -524,6 +524,121 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<Map<String, Object?>> exportUserData() async {
+    final activities = await select(readingActivities).get();
+    final preferences = await select(versePreferences).get();
+    final notes = await select(userNotes).get();
+    final conversations = await select(assistantConversations).get();
+    final settings = await (select(
+      appSettings,
+    )..where((row) => row.key.isIn(['daily_goal', 'reminder_time']))).get();
+    return {
+      'format': 'lumen-biblia-export-v1',
+      'exported_at': DateTime.now().toUtc().toIso8601String(),
+      'settings': {for (final row in settings) row.key: row.value},
+      'reading_activity': [
+        for (final row in activities)
+          {
+            'book_code': row.bookCode,
+            'chapter': row.chapter,
+            'verse': row.verse,
+            'read_day': row.readDay,
+            'created_at': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+      'verse_preferences': [
+        for (final row in preferences)
+          {
+            'verse_id': row.verseId,
+            'favorite': row.favorite,
+            'highlight_color': row.highlightColor,
+            'updated_at': row.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+      'notes': [
+        for (final row in notes)
+          {
+            'id': row.id,
+            'reference': row.reference,
+            'body': row.body,
+            'created_at': row.createdAt.toUtc().toIso8601String(),
+            'updated_at': row.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+      'assistant_conversations': [
+        for (final row in conversations)
+          {
+            'id': row.id,
+            'reference': row.reference,
+            'passage_text': row.passageText,
+            'question': row.question,
+            'answer': row.answer,
+            'created_at': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+    };
+  }
+
+  Future<String> exportUserDataJson() async =>
+      const JsonEncoder.withIndent('  ').convert(await exportUserData());
+
+  Future<String> exportUserDataMarkdown() async {
+    final data = await exportUserData();
+    final notes = (data['notes'] as List).cast<Map<String, Object?>>();
+    final activity = (data['reading_activity'] as List)
+        .cast<Map<String, Object?>>();
+    final conversations = (data['assistant_conversations'] as List)
+        .cast<Map<String, Object?>>();
+    final output = StringBuffer()
+      ..writeln('# Exportación de Lumen Biblia')
+      ..writeln()
+      ..writeln('Generada: ${data['exported_at']}')
+      ..writeln()
+      ..writeln('## Actividad de lectura')
+      ..writeln();
+    for (final row in activity) {
+      output.writeln(
+        '- ${row['read_day']}: ${row['book_code']} '
+        '${row['chapter']}:${row['verse']}',
+      );
+    }
+    output
+      ..writeln()
+      ..writeln('## Notas')
+      ..writeln();
+    for (final row in notes) {
+      output
+        ..writeln('### ${row['reference']}')
+        ..writeln()
+        ..writeln(row['body'])
+        ..writeln();
+    }
+    output
+      ..writeln('## Consultas al asistente')
+      ..writeln();
+    for (final row in conversations) {
+      output
+        ..writeln('### ${row['reference']}')
+        ..writeln()
+        ..writeln('**Pregunta:** ${row['question']}')
+        ..writeln()
+        ..writeln(row['answer'])
+        ..writeln();
+    }
+    return output.toString();
+  }
+
+  Future<void> clearPersonalData() => transaction(() async {
+    await delete(readingActivities).go();
+    await delete(versePreferences).go();
+    await delete(userNotes).go();
+    await delete(assistantConversations).go();
+    await delete(syncOutbox).go();
+    await (delete(
+      appSettings,
+    )..where((row) => row.key.isNotValue('bible_seed_version'))).go();
+  });
+
   Stream<List<AssistantConversation>> watchAssistantConversations() =>
       (select(assistantConversations)
             ..orderBy([(row) => OrderingTerm.desc(row.createdAt)])
