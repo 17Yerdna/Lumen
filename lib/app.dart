@@ -174,6 +174,10 @@ GoRouter _buildRouter() {
         path: '/assistant',
         builder: (context, state) => const AssistantScreen(),
       ),
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => const AccountScreen(),
+      ),
     ],
   );
 }

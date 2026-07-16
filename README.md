@@ -26,7 +26,7 @@ del repositorio:
 ```powershell
 flutter run -d windows `
   --dart-define=SUPABASE_URL=https://example.supabase.co `
-  --dart-define=SUPABASE_ANON_KEY=public-anon-key
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_example
 ```
 
 Sin estas variables, la aplicación funciona en modo invitado y conserva los
