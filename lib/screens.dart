@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'bible_catalog.dart';
 import 'bible_providers.dart';
 import 'database.dart';
+import 'reminders.dart';
 
 class PageFrame extends StatelessWidget {
   const PageFrame({required this.child, this.maxWidth = 1180, super.key});
@@ -68,11 +69,16 @@ class ScreenHeading extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activity =
+        ref.watch(readingActivityProvider).value ?? const <ReadingEntry>[];
+    final noteCount = ref.watch(notesProvider).value?.length ?? 0;
+    final stats = calculateReadingStats(activity, DateTime.now());
+    final goal = ref.watch(dailyGoalProvider).value ?? 10;
     return PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +88,7 @@ class HomeScreen extends StatelessWidget {
             subtitle: 'Un momento de lectura puede iluminar todo el día.',
             trailing: IconButton.filledTonal(
               tooltip: 'Notificaciones',
-              onPressed: () {},
+              onPressed: () => showReadingSettings(context, ref),
               icon: const Icon(Icons.notifications_none_rounded),
             ),
           ),
@@ -93,7 +99,7 @@ class HomeScreen extends StatelessWidget {
               final continueCard = _ContinueReadingCard(
                 onContinue: () => context.go('/reader'),
               );
-              final goalCard = const _DailyGoalCard();
+              final goalCard = _DailyGoalCard(read: stats.today, goal: goal);
               return wide
                   ? IntrinsicHeight(
                       child: Row(
@@ -117,14 +123,14 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 26),
           Text('Tu camino', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 14),
-          const _StatGrid(),
+          _StatGrid(stats: stats, noteCount: noteCount),
           const SizedBox(height: 26),
           Text(
             'Actividad reciente',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 14),
-          const _RecentActivity(),
+          _RecentActivity(entries: activity.take(3).toList()),
         ],
       ),
     );
@@ -196,7 +202,10 @@ class _ContinueReadingCard extends StatelessWidget {
 }
 
 class _DailyGoalCard extends StatelessWidget {
-  const _DailyGoalCard();
+  const _DailyGoalCard({required this.read, required this.goal});
+
+  final int read;
+  final int goal;
 
   @override
   Widget build(BuildContext context) {
@@ -217,28 +226,33 @@ class _DailyGoalCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            const Row(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '6',
-                  style: TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
+                  '$read',
+                  style: const TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Padding(
-                  padding: EdgeInsets.only(bottom: 8, left: 6),
-                  child: Text('de 10 versículos'),
+                  padding: const EdgeInsets.only(bottom: 8, left: 6),
+                  child: Text('de $goal versículos'),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            const LinearProgressIndicator(
-              value: .6,
+            LinearProgressIndicator(
+              value: (read / goal).clamp(0, 1),
               minHeight: 10,
               borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
             const SizedBox(height: 16),
             Text(
-              'Te faltan 4 para completar tu meta.',
+              read >= goal
+                  ? 'Meta completada por hoy.'
+                  : 'Te faltan ${goal - read} para completar tu meta.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -249,14 +263,21 @@ class _DailyGoalCard extends StatelessWidget {
 }
 
 class _StatGrid extends StatelessWidget {
-  const _StatGrid();
+  const _StatGrid({required this.stats, required this.noteCount});
+
+  final ReadingStats stats;
+  final int noteCount;
 
   @override
   Widget build(BuildContext context) {
-    const stats = [
-      (Icons.local_fire_department_outlined, '7 días', 'Racha actual'),
-      (Icons.menu_book_outlined, '128', 'Versículos leídos'),
-      (Icons.sticky_note_2_outlined, '12', 'Notas guardadas'),
+    final items = [
+      (
+        Icons.local_fire_department_outlined,
+        '${stats.currentStreak} días',
+        'Racha actual',
+      ),
+      (Icons.menu_book_outlined, '${stats.total}', 'Versículos leídos'),
+      (Icons.sticky_note_2_outlined, '$noteCount', 'Notas guardadas'),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -267,7 +288,7 @@ class _StatGrid extends StatelessWidget {
           spacing: 16,
           runSpacing: 12,
           children: [
-            for (final stat in stats)
+            for (final stat in items)
               SizedBox(
                 width: itemWidth,
                 child: Card(
@@ -306,24 +327,35 @@ class _StatGrid extends StatelessWidget {
 }
 
 class _RecentActivity extends StatelessWidget {
-  const _RecentActivity();
+  const _RecentActivity({required this.entries});
+
+  final List<ReadingEntry> entries;
 
   @override
   Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const Card(
+        child: ListTile(
+          leading: CircleAvatar(child: Icon(Icons.auto_stories_rounded)),
+          title: Text('Tu actividad aparecerá aquí'),
+          subtitle: Text('Marca un versículo como leído para comenzar.'),
+        ),
+      );
+    }
     return Card(
       child: Column(
-        children: const [
-          ListTile(
-            leading: CircleAvatar(child: Icon(Icons.check_rounded)),
-            title: Text('Marcaste Juan 3:16–18 como leído'),
-            subtitle: Text('Hoy · 08:42'),
-          ),
-          Divider(height: 1, indent: 72),
-          ListTile(
-            leading: CircleAvatar(child: Icon(Icons.edit_note_rounded)),
-            title: Text('Añadiste una nota en Salmos 23:1'),
-            subtitle: Text('Ayer · 21:10'),
-          ),
+        children: [
+          for (var index = 0; index < entries.length; index++) ...[
+            if (index > 0) const Divider(height: 1, indent: 72),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.check_rounded)),
+              title: Text(
+                'Marcaste ${findBibleBook(entries[index].bookCode)!.name} '
+                '${entries[index].chapter}:${entries[index].verse} como leído',
+              ),
+              subtitle: Text(entries[index].readDay),
+            ),
+          ],
         ],
       ),
     );
@@ -339,6 +371,13 @@ class ReaderScreen extends ConsumerStatefulWidget {
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final selected = <int>{16};
+  final noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    noteController.dispose();
+    super.dispose();
+  }
 
   void toggleVerse(int number) {
     setState(() {
@@ -352,6 +391,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Widget build(BuildContext context) {
     final location = ref.watch(readerLocationProvider);
     final verses = ref.watch(chapterVersesProvider);
+    final preferences = {
+      for (final item
+          in ref.watch(versePreferencesProvider).value ??
+              const <VersePreference>[])
+        item.verseId: item,
+    };
     return LayoutBuilder(
       builder: (context, constraints) {
         final showPanel = constraints.maxWidth >= 1024;
@@ -360,6 +405,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             location: location,
             selected: selected,
             verses: items,
+            preferences: preferences,
             onToggle: toggleVerse,
             onPrevious: () => _moveChapter(-1),
             onNext: () => _moveChapter(1),
@@ -381,7 +427,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 const VerticalDivider(width: 1),
                 SizedBox(
                   width: math.min(370, constraints.maxWidth * .32),
-                  child: _StudyPanel(selected: selected, location: location),
+                  child: _StudyPanel(
+                    selected: selected,
+                    location: location,
+                    noteController: noteController,
+                    onMarkRead: _markRead,
+                    onSaveNote: _saveNote,
+                    onFavorite: () => _setFavorite(true),
+                    onHighlight: _setHighlight,
+                  ),
                 ),
               ],
             ],
@@ -401,7 +455,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           ),
                           IconButton(
                             tooltip: 'Marcar leído',
-                            onPressed: () {},
+                            onPressed: _markRead,
                             icon: const Icon(Icons.check_circle_outline),
                           ),
                           IconButton(
@@ -493,7 +547,53 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     setState(selected.clear);
   }
 
+  Iterable<String> _selectedIds() {
+    final location = ref.read(readerLocationProvider);
+    return selected.map(
+      (verse) => '${location.book.code}.${location.chapter}.$verse',
+    );
+  }
+
+  Future<void> _markRead() async {
+    final location = ref.read(readerLocationProvider);
+    await ref
+        .read(databaseProvider)
+        .markRead(location.book.code, location.chapter, selected);
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lectura registrada')));
+    }
+  }
+
+  Future<void> _saveNote() async {
+    final body = noteController.text.trim();
+    if (body.isEmpty) return;
+    final location = ref.read(readerLocationProvider);
+    await ref
+        .read(databaseProvider)
+        .saveNote(location.book, location.chapter, selected, body);
+    if (!mounted) return;
+    noteController.clear();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Nota guardada')));
+  }
+
+  Future<void> _setFavorite(bool value) async {
+    await ref.read(databaseProvider).setFavorite(_selectedIds(), value);
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Añadido a favoritos')));
+    }
+  }
+
+  Future<void> _setHighlight(Color color) =>
+      ref.read(databaseProvider).setHighlight(_selectedIds(), color.toARGB32());
+
   void _showNoteSheet() {
+    final controller = TextEditingController();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -504,28 +604,36 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           20,
           MediaQuery.viewInsetsOf(context).bottom + 20,
         ),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            const Text(
               'Nueva nota',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
+              controller: controller,
               maxLines: 5,
               autofocus: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '¿Qué quieres recordar de este pasaje?',
               ),
             ),
-            SizedBox(height: 16),
-            FilledButton(onPressed: null, child: Text('Guardar nota')),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () async {
+                noteController.text = controller.text;
+                await _saveNote();
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Guardar nota'),
+            ),
           ],
         ),
       ),
-    );
+    ).whenComplete(controller.dispose);
   }
 }
 
@@ -534,6 +642,7 @@ class _ReaderDocument extends StatelessWidget {
     required this.location,
     required this.selected,
     required this.verses,
+    required this.preferences,
     required this.onToggle,
     required this.onPrevious,
     required this.onNext,
@@ -543,6 +652,7 @@ class _ReaderDocument extends StatelessWidget {
   final ReaderLocation location;
   final Set<int> selected;
   final List<BibleVerse> verses;
+  final Map<String, VersePreference> preferences;
   final ValueChanged<int> onToggle;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
@@ -614,6 +724,11 @@ class _ReaderDocument extends StatelessWidget {
                                   ? colors.primaryContainer.withValues(
                                       alpha: .75,
                                     )
+                                  : preferences[verse.id]?.highlightColor !=
+                                        null
+                                  ? Color(
+                                      preferences[verse.id]!.highlightColor!,
+                                    ).withValues(alpha: .45)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               child: InkWell(
@@ -664,10 +779,23 @@ class _ReaderDocument extends StatelessWidget {
 }
 
 class _StudyPanel extends StatelessWidget {
-  const _StudyPanel({required this.selected, required this.location});
+  const _StudyPanel({
+    required this.selected,
+    required this.location,
+    required this.noteController,
+    required this.onMarkRead,
+    required this.onSaveNote,
+    required this.onFavorite,
+    required this.onHighlight,
+  });
 
   final Set<int> selected;
   final ReaderLocation location;
+  final TextEditingController noteController;
+  final VoidCallback onMarkRead;
+  final VoidCallback onSaveNote;
+  final VoidCallback onFavorite;
+  final ValueChanged<Color> onHighlight;
 
   @override
   Widget build(BuildContext context) {
@@ -691,20 +819,29 @@ class _StudyPanel extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
-          onPressed: selected.isEmpty ? null : () {},
+          onPressed: selected.isEmpty ? null : onMarkRead,
           icon: const Icon(Icons.check_circle_outline),
           label: const Text('Marcar como leído'),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: selected.isEmpty ? null : onFavorite,
+          icon: const Icon(Icons.bookmark_add_outlined),
+          label: const Text('Añadir a favoritos'),
         ),
         const SizedBox(height: 24),
         Text('Nota personal', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
-        const TextField(
+        TextField(
+          controller: noteController,
           maxLines: 6,
-          decoration: InputDecoration(hintText: 'Escribe una reflexión...'),
+          decoration: const InputDecoration(
+            hintText: 'Escribe una reflexión...',
+          ),
         ),
         const SizedBox(height: 12),
         FilledButton.tonal(
-          onPressed: selected.isEmpty ? null : () {},
+          onPressed: selected.isEmpty ? null : onSaveNote,
           child: const Text('Guardar nota'),
         ),
         const SizedBox(height: 24),
@@ -712,12 +849,15 @@ class _StudyPanel extends StatelessWidget {
         const SizedBox(height: 12),
         Wrap(
           spacing: 10,
-          children: const [
-            _ColorDot(color: Color(0xFFFFD166)),
-            _ColorDot(color: Color(0xFF95D5B2)),
-            _ColorDot(color: Color(0xFFA9D6E5)),
-            _ColorDot(color: Color(0xFFE4C1F9)),
-            _ColorDot(color: Color(0xFFFFADAD)),
+          children: [
+            for (final color in const [
+              Color(0xFFFFD166),
+              Color(0xFF95D5B2),
+              Color(0xFFA9D6E5),
+              Color(0xFFE4C1F9),
+              Color(0xFFFFADAD),
+            ])
+              _ColorDot(color: color, onTap: () => onHighlight(color)),
           ],
         ),
       ],
@@ -726,12 +866,13 @@ class _StudyPanel extends StatelessWidget {
 }
 
 class _ColorDot extends StatelessWidget {
-  const _ColorDot({required this.color});
+  const _ColorDot({required this.color, required this.onTap});
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => InkWell(
-    onTap: () {},
+    onTap: onTap,
     customBorder: const CircleBorder(),
     child: Container(
       width: 34,
@@ -870,11 +1011,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class NotesScreen extends StatelessWidget {
+class NotesScreen extends ConsumerStatefulWidget {
   const NotesScreen({super.key});
 
   @override
+  ConsumerState<NotesScreen> createState() => _NotesScreenState();
+}
+
+class _NotesScreenState extends ConsumerState<NotesScreen> {
+  String section = 'notes';
+
+  @override
   Widget build(BuildContext context) {
+    final notes = ref.watch(notesProvider);
+    final favorites = ref.watch(favoritesProvider);
     return PageFrame(
       maxWidth: 960,
       child: Column(
@@ -884,7 +1034,7 @@ class NotesScreen extends StatelessWidget {
             title: 'Notas y guardados',
             subtitle: 'Tus reflexiones permanecen privadas.',
             trailing: FilledButton.icon(
-              onPressed: () {},
+              onPressed: () => context.go('/reader'),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Nueva nota'),
             ),
@@ -903,27 +1053,68 @@ class NotesScreen extends StatelessWidget {
                 icon: Icon(Icons.bookmark_outline_rounded),
               ),
             ],
-            selected: const {'notes'},
-            onSelectionChanged: (_) {},
+            selected: {section},
+            onSelectionChanged: (value) =>
+                setState(() => section = value.first),
           ),
           const SizedBox(height: 20),
-          const _NoteCard(
-            reference: 'Salmos 23:1',
-            body:
-                'La imagen del pastor habla de cuidado constante, no de ausencia de dificultades.',
-            date: 'Ayer',
-          ),
-          const _NoteCard(
-            reference: 'Juan 3:16',
-            body: 'El amor de Dios toma la iniciativa y se expresa en entrega.',
-            date: '12 jul',
-          ),
-          const _NoteCard(
-            reference: 'Génesis 2:3',
-            body:
-                'El descanso también puede ser una forma de recordar quién sostiene la creación.',
-            date: '8 jul',
-          ),
+          if (section == 'notes')
+            notes.when(
+              data: (items) => items.isEmpty
+                  ? const _EmptyCollection(
+                      icon: Icons.edit_note_rounded,
+                      message: 'Aún no tienes notas.',
+                    )
+                  : Column(
+                      children: [
+                        for (final note in items)
+                          _NoteCard(
+                            reference: note.reference,
+                            body: note.body,
+                            date: _shortDate(note.updatedAt),
+                            onDelete: () =>
+                                ref.read(databaseProvider).deleteNote(note.id),
+                          ),
+                      ],
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('No se pudieron cargar: $error'),
+            )
+          else
+            favorites.when(
+              data: (items) => items.isEmpty
+                  ? const _EmptyCollection(
+                      icon: Icons.bookmark_outline_rounded,
+                      message: 'Aún no tienes favoritos.',
+                    )
+                  : Column(
+                      children: [
+                        for (final verse in items)
+                          Card(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(18),
+                              title: Text(verse.reference),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(verse.body),
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () {
+                                final book = bibleBooks.firstWhere(
+                                  (item) => item.code == verse.bookCode,
+                                );
+                                ref
+                                    .read(readerLocationProvider.notifier)
+                                    .goTo(book, verse.chapter);
+                                context.go('/reader');
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('No se pudieron cargar: $error'),
+            ),
         ],
       ),
     );
@@ -935,10 +1126,12 @@ class _NoteCard extends StatelessWidget {
     required this.reference,
     required this.body,
     required this.date,
+    required this.onDelete,
   });
   final String reference;
   final String body;
   final String date;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -962,6 +1155,11 @@ class _NoteCard extends StatelessWidget {
                       ),
                     ),
                     Text(date),
+                    IconButton(
+                      tooltip: 'Eliminar nota',
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -975,11 +1173,141 @@ class _NoteCard extends StatelessWidget {
   );
 }
 
-class ProfileScreen extends StatelessWidget {
+class _EmptyCollection extends StatelessWidget {
+  const _EmptyCollection({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 48),
+    child: Center(
+      child: Column(
+        children: [
+          Icon(icon, size: 42),
+          const SizedBox(height: 12),
+          Text(message),
+        ],
+      ),
+    ),
+  );
+}
+
+String _shortDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+
+Future<void> showReadingSettings(BuildContext context, WidgetRef ref) async {
+  final database = ref.read(databaseProvider);
+  var goal = int.tryParse(await database.getSetting('daily_goal') ?? '') ?? 10;
+  final savedReminder = await database.getSetting('reminder_time');
+  var reminderEnabled = savedReminder != null;
+  final parts = savedReminder?.split(':');
+  var reminderTime = TimeOfDay(
+    hour: int.tryParse(parts?.first ?? '') ?? 20,
+    minute: int.tryParse(parts?.last ?? '') ?? 0,
+  );
+  if (!context.mounted) return;
+
+  final result = await showDialog<(int, bool, TimeOfDay)>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Meta y recordatorio'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: goal,
+                decoration: const InputDecoration(
+                  labelText: 'Meta diaria de versículos',
+                ),
+                items: [
+                  for (final value in const [5, 10, 15, 20, 30])
+                    DropdownMenuItem(value: value, child: Text('$value')),
+                ],
+                onChanged: (value) =>
+                    setDialogState(() => goal = value ?? goal),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Recordatorio diario'),
+                value: reminderEnabled,
+                onChanged: (value) =>
+                    setDialogState(() => reminderEnabled = value),
+              ),
+              if (reminderEnabled)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Hora'),
+                  trailing: Text(reminderTime.format(context)),
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: reminderTime,
+                    );
+                    if (picked != null) {
+                      setDialogState(() => reminderTime = picked);
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, (goal, reminderEnabled, reminderTime)),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (result == null) return;
+
+  await database.setSetting('daily_goal', '${result.$1}');
+  try {
+    if (result.$2) {
+      await reminderService.scheduleDaily(result.$3.hour, result.$3.minute);
+      await database.setSetting(
+        'reminder_time',
+        '${result.$3.hour.toString().padLeft(2, '0')}:'
+            '${result.$3.minute.toString().padLeft(2, '0')}',
+      );
+    } else {
+      await reminderService.cancel();
+      await database.setSetting('reminder_time', null);
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preferencias guardadas')));
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo programar el recordatorio: $error')),
+      );
+    }
+  }
+}
+
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activity =
+        ref.watch(readingActivityProvider).value ?? const <ReadingEntry>[];
+    final notes = ref.watch(notesProvider).value ?? const <UserNote>[];
+    final stats = calculateReadingStats(activity, DateTime.now());
     return PageFrame(
       maxWidth: 1050,
       child: Column(
@@ -989,13 +1317,13 @@ class ProfileScreen extends StatelessWidget {
             title: 'Tu camino de lectura',
             subtitle: 'Perfil privado · Modo invitado',
             trailing: IconButton.filledTonal(
-              onPressed: () {},
+              onPressed: () => showReadingSettings(context, ref),
               tooltip: 'Configuración',
               icon: const Icon(Icons.settings_outlined),
             ),
           ),
           const SizedBox(height: 24),
-          const _ProfileSummary(),
+          _ProfileSummary(stats: stats, noteCount: notes.length),
           const SizedBox(height: 22),
           Card(
             child: Padding(
@@ -1012,7 +1340,7 @@ class ProfileScreen extends StatelessWidget {
                     'La intensidad representa cuántos versículos leíste cada día.',
                   ),
                   const SizedBox(height: 20),
-                  const _ActivityHeatmap(),
+                  _ActivityHeatmap(byDay: stats.byDay),
                 ],
               ),
             ),
@@ -1024,15 +1352,18 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileSummary extends StatelessWidget {
-  const _ProfileSummary();
+  const _ProfileSummary({required this.stats, required this.noteCount});
+
+  final ReadingStats stats;
+  final int noteCount;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      ('128', 'Versículos'),
-      ('7', 'Racha actual'),
-      ('14', 'Mejor racha'),
-      ('12', 'Notas'),
+    final items = [
+      ('${stats.total}', 'Versículos'),
+      ('${stats.currentStreak}', 'Racha actual'),
+      ('${stats.bestStreak}', 'Mejor racha'),
+      ('$noteCount', 'Notas'),
     ];
     return Card(
       child: Padding(
@@ -1063,7 +1394,9 @@ class _ProfileSummary extends StatelessWidget {
 }
 
 class _ActivityHeatmap extends StatelessWidget {
-  const _ActivityHeatmap();
+  const _ActivityHeatmap({required this.byDay});
+
+  final Map<String, int> byDay;
 
   @override
   Widget build(BuildContext context) {
@@ -1080,7 +1413,14 @@ class _ActivityHeatmap extends StatelessWidget {
               spacing: 3,
               runSpacing: 3,
               children: List.generate(365, (index) {
-                final value = (index * 17 + index ~/ 9) % 11;
+                final date = DateTime.now().subtract(
+                  Duration(days: 364 - index),
+                );
+                final key =
+                    '${date.year.toString().padLeft(4, '0')}-'
+                    '${date.month.toString().padLeft(2, '0')}-'
+                    '${date.day.toString().padLeft(2, '0')}';
+                final value = byDay[key] ?? 0;
                 final intensity = value == 0
                     ? 0.08
                     : value < 4
@@ -1091,7 +1431,7 @@ class _ActivityHeatmap extends StatelessWidget {
                     ? .72
                     : 1.0;
                 return Tooltip(
-                  message: '$value versículos',
+                  message: '$key · $value versículos',
                   child: Container(
                     width: cell,
                     height: cell,

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumen_biblia/adaptive_shell.dart';
 import 'package:lumen_biblia/app.dart';
 import 'package:lumen_biblia/bible_catalog.dart';
 import 'package:lumen_biblia/bible_providers.dart';
 import 'package:lumen_biblia/database.dart';
+
+List<Override> emptyUserDataOverrides() => [
+  readingActivityProvider.overrideWith((ref) => Stream.value(const [])),
+  notesProvider.overrideWith((ref) => Stream.value(const [])),
+  versePreferencesProvider.overrideWith((ref) => Stream.value(const [])),
+  favoritesProvider.overrideWith((ref) => Stream.value(const [])),
+  dailyGoalProvider.overrideWith((ref) => Stream.value(10)),
+];
 
 void main() {
   test('breakpoints are deterministic', () {
@@ -26,6 +35,32 @@ void main() {
     expect(parseBibleReference('Salmos 151'), isNull);
   });
 
+  test('reading stats calculate totals and streaks', () {
+    final createdAt = DateTime(2026, 7, 15);
+    final entries = [
+      for (final item in [
+        (1, '2026-07-13'),
+        (2, '2026-07-14'),
+        (3, '2026-07-15'),
+        (4, '2026-07-15'),
+      ])
+        ReadingEntry(
+          id: item.$1,
+          bookCode: 'JOH',
+          chapter: 3,
+          verse: item.$1,
+          readDay: item.$2,
+          createdAt: createdAt,
+        ),
+    ];
+
+    final stats = calculateReadingStats(entries, DateTime(2026, 7, 16));
+    expect(stats.total, 4);
+    expect(stats.today, 0);
+    expect(stats.currentStreak, 3);
+    expect(stats.bestStreak, 3);
+  });
+
   for (final testCase in [
     (375.0, 'compact-navigation'),
     (800.0, 'medium-navigation'),
@@ -38,7 +73,12 @@ void main() {
       tester.view.physicalSize = Size(testCase.$1, 900);
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(const ProviderScope(child: LumenApp()));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: emptyUserDataOverrides(),
+          child: const LumenApp(),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byKey(Key(testCase.$2)), findsOneWidget);
@@ -55,6 +95,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyUserDataOverrides(),
           chapterVersesProvider.overrideWith(
             (ref) => Stream.value(const [
               BibleVerse(
