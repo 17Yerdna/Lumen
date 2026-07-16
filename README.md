@@ -32,6 +32,12 @@ flutter run -d windows `
 Sin estas variables, la aplicación funciona en modo invitado y conserva los
 datos localmente.
 
+## Integración continua
+
+- GitHub Actions valida análisis, tests, APK Android y build Windows.
+- Codemagic compila iOS sin firma. Para activarlo, conecta este repositorio en
+  Codemagic y selecciona `codemagic.yaml`.
+
 ## Contenido bíblico
 
 El desarrollo usa Reina-Valera 1909, publicada como dominio público por
