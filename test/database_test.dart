@@ -30,6 +30,7 @@ void main() {
     await database.setFavorite(['JOH.3.16'], true);
     await database.setHighlight(['JOH.3.16'], 0xFFFFD166);
     await database.setDailyGoal(12);
+    await database.setSetting('synced_user_id', 'old-user');
     await database.saveAssistantConversation(
       reference: 'Juan 3:16',
       passageText: '16 Porque de tal manera amó Dios al mundo.',
@@ -87,6 +88,7 @@ void main() {
     expect(await database.watchAssistantConversations().first, isEmpty);
     expect(await database.pendingSyncItems(), isEmpty);
     expect(await database.getSetting('daily_goal'), isNull);
+    expect(await database.getSetting('synced_user_id'), isNull);
     expect(await database.search('Juan 3'), hasLength(36));
     await database.close();
   });

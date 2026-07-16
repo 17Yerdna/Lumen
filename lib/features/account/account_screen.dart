@@ -107,9 +107,39 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
+  Future<void> resetForCurrentAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Usar esta cuenta'),
+        content: const Text(
+          'Los datos locales pertenecen a otra cuenta. Para evitar mezclar '
+          'información privada, debes borrarlos antes de continuar. La Biblia '
+          'offline no se eliminará.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Borrar datos locales'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => busy = true);
+    await ref.read(databaseProvider).clearPersonalData();
+    ref.invalidate(syncProvider);
+    if (mounted) setState(() => busy = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final client = supabaseClient;
+    final sync = ref.watch(syncProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cuenta'),
@@ -154,6 +184,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                   user.email ?? 'Cuenta conectada',
                                   textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 16),
+                                _SyncStatus(
+                                  sync: sync,
+                                  onRetry: () => ref.invalidate(syncProvider),
+                                  onReset: resetForCurrentAccount,
                                 ),
                                 const SizedBox(height: 16),
                                 OutlinedButton(
@@ -244,4 +280,51 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ),
     );
   }
+}
+
+class _SyncStatus extends StatelessWidget {
+  const _SyncStatus({
+    required this.sync,
+    required this.onRetry,
+    required this.onReset,
+  });
+
+  final AsyncValue<void> sync;
+  final VoidCallback onRetry;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) => sync.when(
+    data: (_) => const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.sync_rounded, size: 18),
+        SizedBox(width: 8),
+        Text('Sincronización al día'),
+      ],
+    ),
+    loading: () => const LinearProgressIndicator(),
+    error: (error, _) {
+      final accountMismatch = error.toString().contains('otra cuenta');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            accountMismatch
+                ? 'Los datos locales pertenecen a otra cuenta.'
+                : 'No se pudo sincronizar. Tus cambios siguen guardados.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: accountMismatch ? onReset : onRetry,
+            icon: Icon(
+              accountMismatch ? Icons.person_outline : Icons.refresh_rounded,
+            ),
+            label: Text(accountMismatch ? 'Usar esta cuenta' : 'Reintentar'),
+          ),
+        ],
+      );
+    },
+  );
 }

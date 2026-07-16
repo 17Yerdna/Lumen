@@ -99,11 +99,24 @@ class LumenApp extends ConsumerStatefulWidget {
   ConsumerState<LumenApp> createState() => _LumenAppState();
 }
 
-class _LumenAppState extends ConsumerState<LumenApp> {
+class _LumenAppState extends ConsumerState<LumenApp>
+    with WidgetsBindingObserver {
   late final GoRouter _router = _buildRouter();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ref.invalidate(syncProvider);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
   }
