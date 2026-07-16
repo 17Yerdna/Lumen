@@ -51,7 +51,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void openVerse(BibleVerse verse) {
     final book = bibleBooks.firstWhere((item) => item.code == verse.bookCode);
-    ref.read(readerLocationProvider.notifier).goTo(book, verse.chapter);
+    unawaited(
+      ref.read(readerViewProvider.notifier).openChapter(book, verse.chapter),
+    );
     context.go('/reader');
   }
 

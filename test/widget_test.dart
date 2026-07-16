@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -17,6 +18,15 @@ List<Override> emptyUserDataOverrides() => [
   favoritesProvider.overrideWith((ref) => Stream.value(const [])),
   assistantConversationsProvider.overrideWith((ref) => Stream.value(const [])),
   dailyGoalProvider.overrideWith((ref) => Stream.value(10)),
+  lastReaderLocationProvider.overrideWith(
+    (ref) async => ReaderLocation(bibleBooks.first, 1),
+  ),
+  lastReadingPreviewProvider.overrideWith(
+    (ref) async => ReadingPreview(
+      ReaderLocation(bibleBooks.first, 1),
+      'En el principio creó Dios los cielos y la tierra.',
+    ),
+  ),
 ];
 
 void main() {
@@ -36,6 +46,45 @@ void main() {
       '1 Corintios 13:4–7',
     );
     expect(parseBibleReference('Salmos 151'), isNull);
+  });
+
+  test('Bible categories cover all books once in canonical order', () {
+    final oldBooks = oldTestamentCategories.expand((item) => item.books);
+    final newBooks = newTestamentCategories.expand((item) => item.books);
+    final grouped = [...oldBooks, ...newBooks];
+
+    expect(oldBooks, hasLength(39));
+    expect(newBooks, hasLength(27));
+    expect(grouped, bibleBooks);
+    expect(grouped.map((book) => book.code).toSet(), hasLength(66));
+  });
+
+  test('stored reader locations are validated', () {
+    expect(parseStoredReaderLocation('JOH:3').book.name, 'Juan');
+    expect(parseStoredReaderLocation('JOH:3').chapter, 3);
+    expect(parseStoredReaderLocation('PSA:151').book, bibleBooks.first);
+    expect(parseStoredReaderLocation('not-a-location').chapter, 1);
+  });
+
+  test('reader controller persists chapters across book boundaries', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    final container = ProviderContainer(
+      overrides: [databaseProvider.overrideWithValue(database)],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await database.close();
+    });
+
+    await container
+        .read(readerViewProvider.notifier)
+        .openChapter(bibleBooks.first, 50);
+    await container.read(readerViewProvider.notifier).moveChapter(1);
+
+    final location = container.read(readerLocationProvider);
+    expect(location.book.code, 'EXO');
+    expect(location.chapter, 1);
+    expect(await database.getSetting('last_reader_location'), 'EXO:1');
   });
 
   test('reading stats calculate totals and streaks', () {
@@ -136,15 +185,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact navigation opens the reader', (tester) async {
+  for (final width in [393.0, 800.0, 1024.0, 1440.0]) {
+    testWidgets('Bible catalog fits at ${width.toInt()}px', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 900);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: emptyUserDataOverrides(),
+          child: const MaterialApp(home: ReaderScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Antiguo Testamento'), findsOneWidget);
+      expect(find.text('Nuevo Testamento'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('compact Bible navigation follows books chapters and reader', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(393, 852);
     addTearDown(tester.view.reset);
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           ...emptyUserDataOverrides(),
+          databaseProvider.overrideWithValue(database),
           chapterVersesProvider.overrideWith(
             (ref) => Stream.value(const [
               BibleVerse(
@@ -168,8 +242,28 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
+    expect(find.text('Antiguo Testamento'), findsOneWidget);
+    expect(find.textContaining('Porque de tal manera'), findsNothing);
+
+    await tester.tap(find.text('Nuevo Testamento'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('book-JOH')));
+    await tester.pumpAndSettle();
+    expect(find.text('Selecciona un capítulo'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('chapter-3')));
+    await tester.pumpAndSettle();
     expect(find.text('Juan'), findsOneWidget);
     expect(find.textContaining('Porque de tal manera'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('reader-back-chapters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Selecciona un capítulo'), findsOneWidget);
+    expect(find.textContaining('Porque de tal manera'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('chapters-back-books')));
+    await tester.pumpAndSettle();
+    expect(find.text('Antiguo Testamento'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -31,6 +31,7 @@ void main() {
     await database.setHighlight(['JOH.3.16'], 0xFFFFD166);
     await database.setDailyGoal(12);
     await database.setSetting('synced_user_id', 'old-user');
+    await database.setSetting('last_reader_location', 'JOH:3');
     await database.saveAssistantConversation(
       reference: 'Juan 3:16',
       passageText: '16 Porque de tal manera amó Dios al mundo.',
@@ -73,6 +74,7 @@ void main() {
     final export = jsonDecode(await database.exportUserDataJson());
     expect(export['format'], 'lumen-biblia-export-v1');
     expect(export['settings']['daily_goal'], '12');
+    expect(export['settings']['last_reader_location'], 'JOH:3');
     expect(export['reading_activity'], hasLength(1));
     expect(export['notes'].single['reference'], 'Juan 3:16–17');
     expect(export['assistant_conversations'].single['question'], 'Explícalo.');
@@ -89,6 +91,7 @@ void main() {
     expect(await database.pendingSyncItems(), isEmpty);
     expect(await database.getSetting('daily_goal'), isNull);
     expect(await database.getSetting('synced_user_id'), isNull);
+    expect(await database.getSetting('last_reader_location'), isNull);
     expect(await database.search('Juan 3'), hasLength(36));
     await database.close();
   });

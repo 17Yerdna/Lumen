@@ -529,9 +529,15 @@ class AppDatabase extends _$AppDatabase {
     final preferences = await select(versePreferences).get();
     final notes = await select(userNotes).get();
     final conversations = await select(assistantConversations).get();
-    final settings = await (select(
-      appSettings,
-    )..where((row) => row.key.isIn(['daily_goal', 'reminder_time']))).get();
+    final settings =
+        await (select(appSettings)..where(
+              (row) => row.key.isIn([
+                'daily_goal',
+                'reminder_time',
+                'last_reader_location',
+              ]),
+            ))
+            .get();
     return {
       'format': 'lumen-biblia-export-v1',
       'exported_at': DateTime.now().toUtc().toIso8601String(),

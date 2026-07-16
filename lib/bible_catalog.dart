@@ -81,6 +81,32 @@ const bibleBooks = <BookInfo>[
   BookInfo('REV', 'Apocalipsis', 22, ['apoc', 'ap']),
 ];
 
+class BibleCategory {
+  const BibleCategory(this.name, this.start, this.end);
+
+  final String name;
+  final int start;
+  final int end;
+
+  List<BookInfo> get books => bibleBooks.sublist(start, end);
+}
+
+const oldTestamentCategories = <BibleCategory>[
+  BibleCategory('Pentateuco', 0, 5),
+  BibleCategory('Históricos', 5, 17),
+  BibleCategory('Poéticos y sapienciales', 17, 22),
+  BibleCategory('Profetas mayores', 22, 27),
+  BibleCategory('Profetas menores', 27, 39),
+];
+
+const newTestamentCategories = <BibleCategory>[
+  BibleCategory('Evangelios', 39, 43),
+  BibleCategory('Historia', 43, 44),
+  BibleCategory('Cartas paulinas', 44, 57),
+  BibleCategory('Cartas generales', 57, 65),
+  BibleCategory('Profecía', 65, 66),
+];
+
 String normalizeBibleText(String value) {
   return value
       .trim()

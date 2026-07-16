@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'bible_providers.dart';
 
 enum WindowClass { compact, medium, expanded }
 
@@ -37,12 +40,13 @@ const _destinations = <NavigationDestination>[
   ),
 ];
 
-class AdaptiveShell extends StatelessWidget {
+class AdaptiveShell extends ConsumerWidget {
   const AdaptiveShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
-  void _select(int index) {
+  void _select(WidgetRef ref, int index) {
+    if (index == 1) ref.read(readerViewProvider.notifier).showBooks();
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -50,7 +54,7 @@ class AdaptiveShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return switch (windowClassFor(constraints.maxWidth)) {
@@ -59,7 +63,7 @@ class AdaptiveShell extends StatelessWidget {
             bottomNavigationBar: NavigationBar(
               key: const Key('compact-navigation'),
               selectedIndex: navigationShell.currentIndex,
-              onDestinationSelected: _select,
+              onDestinationSelected: (index) => _select(ref, index),
               destinations: _destinations,
             ),
           ),
@@ -70,7 +74,7 @@ class AdaptiveShell extends StatelessWidget {
                   NavigationRail(
                     key: const Key('medium-navigation'),
                     selectedIndex: navigationShell.currentIndex,
-                    onDestinationSelected: _select,
+                    onDestinationSelected: (index) => _select(ref, index),
                     labelType: NavigationRailLabelType.all,
                     leading: const Padding(
                       padding: EdgeInsets.only(bottom: 16),
@@ -98,7 +102,7 @@ class AdaptiveShell extends StatelessWidget {
                 children: [
                   _DesktopSidebar(
                     selectedIndex: navigationShell.currentIndex,
-                    onSelect: _select,
+                    onSelect: (index) => _select(ref, index),
                   ),
                   const VerticalDivider(width: 1),
                   Expanded(child: navigationShell),

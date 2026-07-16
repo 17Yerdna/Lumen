@@ -8,7 +8,7 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
-  final selected = <int>{16};
+  final selected = <int>{};
   final noteController = TextEditingController();
 
   @override
@@ -27,7 +27,40 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final view = ref.watch(readerViewProvider);
     final location = ref.watch(readerLocationProvider);
+    ref.listen(readerLocationProvider, (previous, next) {
+      if (previous != null &&
+          (previous.book != next.book || previous.chapter != next.chapter) &&
+          mounted) {
+        setState(() {
+          selected.clear();
+          noteController.clear();
+        });
+      }
+    });
+    final child = switch (view) {
+      ReaderView.books => _BibleCatalog(
+        onBook: _showChapters,
+        onContinue: _openChapter,
+      ),
+      ReaderView.chapters => _ChapterCatalog(
+        book: location.book,
+        onBack: _showBooks,
+        onChapter: (chapter) => _openChapter(location.book, chapter),
+      ),
+      ReaderView.reader => _buildReader(location),
+    };
+    return PopScope(
+      canPop: view == ReaderView.books,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack(view, location);
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildReader(ReaderLocation location) {
     final verses = ref.watch(chapterVersesProvider);
     final preferences = {
       for (final item
@@ -47,7 +80,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             onToggle: toggleVerse,
             onPrevious: () => _moveChapter(-1),
             onNext: () => _moveChapter(1),
-            onChoosePassage: _choosePassage,
+            onBack: () => _showChapters(location.book),
+            onBooks: _showBooks,
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
@@ -118,72 +152,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  void _moveChapter(int offset) {
-    ref.read(readerLocationProvider.notifier).move(offset);
+  void _goBack(ReaderView view, ReaderLocation location) {
+    if (view == ReaderView.reader) {
+      _showChapters(location.book);
+    } else if (view == ReaderView.chapters) {
+      _showBooks();
+    }
+  }
+
+  void _showBooks() {
+    ref.read(readerViewProvider.notifier).showBooks();
     setState(selected.clear);
   }
 
-  Future<void> _choosePassage() async {
-    final current = ref.read(readerLocationProvider);
-    var book = current.book;
-    var chapter = current.chapter;
-    final result = await showDialog<ReaderLocation>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Ir a un pasaje'),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<BookInfo>(
-                  initialValue: book,
-                  decoration: const InputDecoration(labelText: 'Libro'),
-                  items: [
-                    for (final item in bibleBooks)
-                      DropdownMenuItem(value: item, child: Text(item.name)),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setDialogState(() {
-                      book = value;
-                      chapter = chapter.clamp(1, book.chapters);
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  key: ValueKey(book.code),
-                  initialValue: chapter,
-                  decoration: const InputDecoration(labelText: 'Capítulo'),
-                  items: [
-                    for (var number = 1; number <= book.chapters; number++)
-                      DropdownMenuItem(value: number, child: Text('$number')),
-                  ],
-                  onChanged: (value) =>
-                      setDialogState(() => chapter = value ?? chapter),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, ReaderLocation(book, chapter)),
-              child: const Text('Ir'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (result == null) return;
-    ref.read(readerLocationProvider.notifier).goTo(result.book, result.chapter);
+  void _showChapters(BookInfo book) {
+    ref.read(readerViewProvider.notifier).showChapters(book);
     setState(selected.clear);
+  }
+
+  void _openChapter(BookInfo book, int chapter) {
+    setState(selected.clear);
+    unawaited(ref.read(readerViewProvider.notifier).openChapter(book, chapter));
+  }
+
+  void _moveChapter(int offset) {
+    setState(selected.clear);
+    unawaited(ref.read(readerViewProvider.notifier).moveChapter(offset));
   }
 
   Iterable<String> _selectedIds() {
@@ -308,6 +302,222 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 }
 
+class _BibleCatalog extends ConsumerWidget {
+  const _BibleCatalog({required this.onBook, required this.onContinue});
+
+  final ValueChanged<BookInfo> onBook;
+  final void Function(BookInfo, int) onContinue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preview =
+        ref.watch(lastReadingPreviewProvider).value ??
+        ReadingPreview(ReaderLocation(bibleBooks.first, 1), '');
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const ScreenHeading(
+                      title: 'Biblia',
+                      subtitle: 'Elige un libro y después un capítulo.',
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.play_circle_outline_rounded),
+                        title: Text(
+                          'Continuar en ${preview.location.book.name} '
+                          '${preview.location.chapter}',
+                        ),
+                        subtitle: Text(
+                          preview.text.isEmpty
+                              ? 'Comienza tu lectura.'
+                              : preview.text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_rounded),
+                        onTap: () => onContinue(
+                          preview.location.book,
+                          preview.location.chapter,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const TabBar(
+                      tabs: [
+                        Tab(text: 'Antiguo Testamento'),
+                        Tab(text: 'Nuevo Testamento'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _BookGroupsList(
+                  categories: oldTestamentCategories,
+                  onBook: onBook,
+                ),
+                _BookGroupsList(
+                  categories: newTestamentCategories,
+                  onBook: onBook,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookGroupsList extends StatelessWidget {
+  const _BookGroupsList({required this.categories, required this.onBook});
+
+  final List<BibleCategory> categories;
+  final ValueChanged<BookInfo> onBook;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+    children: [
+      Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final category in categories) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 18, bottom: 10),
+                  child: Text(
+                    category.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 190,
+                    mainAxisExtent: 58,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                  ),
+                  itemCount: category.books.length,
+                  itemBuilder: (context, index) {
+                    final book = category.books[index];
+                    return OutlinedButton(
+                      key: Key('book-${book.code}'),
+                      onPressed: () => onBook(book),
+                      child: Text(
+                        book.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _ChapterCatalog extends ConsumerWidget {
+  const _ChapterCatalog({
+    required this.book,
+    required this.onBack,
+    required this.onChapter,
+  });
+
+  final BookInfo book;
+  final VoidCallback onBack;
+  final ValueChanged<int> onChapter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final last = ref.watch(lastReaderLocationProvider).value;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 20, 12),
+          child: Row(
+            children: [
+              IconButton(
+                key: const Key('chapters-back-books'),
+                tooltip: 'Todos los libros',
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.name,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const Text('Selecciona un capítulo'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(20),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 86,
+              mainAxisExtent: 58,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+            ),
+            itemCount: book.chapters,
+            itemBuilder: (context, index) {
+              final chapter = index + 1;
+              final isLast = last?.book == book && last?.chapter == chapter;
+              final child = Text('$chapter');
+              return isLast
+                  ? FilledButton.tonal(
+                      key: Key('chapter-$chapter'),
+                      onPressed: () => onChapter(chapter),
+                      child: child,
+                    )
+                  : OutlinedButton(
+                      key: Key('chapter-$chapter'),
+                      onPressed: () => onChapter(chapter),
+                      child: child,
+                    );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ReaderDocument extends StatelessWidget {
   const _ReaderDocument({
     required this.location,
@@ -317,7 +527,8 @@ class _ReaderDocument extends StatelessWidget {
     required this.onToggle,
     required this.onPrevious,
     required this.onNext,
-    required this.onChoosePassage,
+    required this.onBack,
+    required this.onBooks,
   });
 
   final ReaderLocation location;
@@ -327,7 +538,8 @@ class _ReaderDocument extends StatelessWidget {
   final ValueChanged<int> onToggle;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
-  final VoidCallback onChoosePassage;
+  final VoidCallback onBack;
+  final VoidCallback onBooks;
 
   @override
   Widget build(BuildContext context) {
@@ -339,13 +551,19 @@ class _ReaderDocument extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
+                key: const Key('reader-back-chapters'),
+                tooltip: 'Capítulos de este libro',
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              IconButton(
                 tooltip: 'Capítulo anterior',
                 onPressed: onPrevious,
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
               Expanded(
                 child: InkWell(
-                  onTap: onChoosePassage,
+                  onTap: onBack,
                   borderRadius: BorderRadius.circular(12),
                   child: Column(
                     children: [
@@ -365,6 +583,11 @@ class _ReaderDocument extends StatelessWidget {
                 tooltip: 'Capítulo siguiente',
                 onPressed: onNext,
                 icon: const Icon(Icons.chevron_right_rounded),
+              ),
+              IconButton(
+                tooltip: 'Todos los libros',
+                onPressed: onBooks,
+                icon: const Icon(Icons.library_books_outlined),
               ),
             ],
           ),

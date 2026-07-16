@@ -38,13 +38,13 @@ class ReaderLocation {
 
 class ReaderLocationController extends Notifier<ReaderLocation> {
   @override
-  ReaderLocation build() => ReaderLocation(findBibleBook('Juan')!, 3);
+  ReaderLocation build() => ReaderLocation(bibleBooks.first, 1);
 
   void goTo(BookInfo book, int chapter) {
     state = ReaderLocation(book, chapter);
   }
 
-  void move(int offset) {
+  ReaderLocation move(int offset) {
     var bookIndex = bibleBooks.indexOf(state.book);
     var chapter = state.chapter + offset;
     if (chapter < 1 && bookIndex > 0) {
@@ -59,6 +59,7 @@ class ReaderLocationController extends Notifier<ReaderLocation> {
       bibleBooks[bookIndex],
       chapter.clamp(1, bibleBooks[bookIndex].chapters),
     );
+    return state;
   }
 }
 
@@ -66,6 +67,91 @@ final readerLocationProvider =
     NotifierProvider<ReaderLocationController, ReaderLocation>(
       ReaderLocationController.new,
     );
+
+enum ReaderView { books, chapters, reader }
+
+class ReaderViewController extends Notifier<ReaderView> {
+  @override
+  ReaderView build() => ReaderView.books;
+
+  void showBooks() => state = ReaderView.books;
+
+  void showChapters(BookInfo book) {
+    final current = ref.read(readerLocationProvider);
+    ref
+        .read(readerLocationProvider.notifier)
+        .goTo(book, current.book == book ? current.chapter : 1);
+    state = ReaderView.chapters;
+  }
+
+  Future<void> openChapter(BookInfo book, int chapter) async {
+    if (chapter < 1 || chapter > book.chapters) {
+      throw RangeError.range(chapter, 1, book.chapters, 'chapter');
+    }
+    final location = ReaderLocation(book, chapter);
+    ref.read(readerLocationProvider.notifier).goTo(book, chapter);
+    state = ReaderView.reader;
+    await _remember(location);
+  }
+
+  Future<void> moveChapter(int offset) async {
+    state = ReaderView.reader;
+    final location = ref.read(readerLocationProvider.notifier).move(offset);
+    await _remember(location);
+  }
+
+  Future<void> _remember(ReaderLocation location) async {
+    await ref
+        .read(databaseProvider)
+        .setSetting(
+          'last_reader_location',
+          '${location.book.code}:${location.chapter}',
+        );
+    ref.invalidate(lastReaderLocationProvider);
+  }
+}
+
+final readerViewProvider = NotifierProvider<ReaderViewController, ReaderView>(
+  ReaderViewController.new,
+);
+
+ReaderLocation parseStoredReaderLocation(String? value) {
+  final parts = value?.split(':') ?? const <String>[];
+  final book = parts.length == 2 ? findBibleBook(parts.first) : null;
+  final chapter = parts.length == 2 ? int.tryParse(parts.last) : null;
+  if (book == null ||
+      chapter == null ||
+      chapter < 1 ||
+      chapter > book.chapters) {
+    return ReaderLocation(bibleBooks.first, 1);
+  }
+  return ReaderLocation(book, chapter);
+}
+
+final lastReaderLocationProvider = FutureProvider<ReaderLocation>((ref) async {
+  final value = await ref
+      .watch(databaseProvider)
+      .getSetting('last_reader_location');
+  return parseStoredReaderLocation(value);
+});
+
+class ReadingPreview {
+  const ReadingPreview(this.location, this.text);
+
+  final ReaderLocation location;
+  final String text;
+}
+
+final lastReadingPreviewProvider = FutureProvider<ReadingPreview>((ref) async {
+  final location = await ref.watch(lastReaderLocationProvider.future);
+  await ref.watch(bibleReadyProvider.future);
+  final verses = await ref
+      .watch(databaseProvider)
+      .getReference(
+        BibleReference(book: location.book, chapter: location.chapter),
+      );
+  return ReadingPreview(location, verses.isEmpty ? '' : verses.first.body);
+});
 
 final chapterVersesProvider = StreamProvider<List<BibleVerse>>((ref) async* {
   await ref.watch(bibleReadyProvider.future);

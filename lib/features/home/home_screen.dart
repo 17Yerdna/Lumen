@@ -10,6 +10,9 @@ class HomeScreen extends ConsumerWidget {
     final noteCount = ref.watch(notesProvider).value?.length ?? 0;
     final stats = calculateReadingStats(activity, DateTime.now());
     final goal = ref.watch(dailyGoalProvider).value ?? 10;
+    final preview =
+        ref.watch(lastReadingPreviewProvider).value ??
+        ReadingPreview(ReaderLocation(bibleBooks.first, 1), '');
     return PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,7 +31,18 @@ class HomeScreen extends ConsumerWidget {
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 760;
               final continueCard = _ContinueReadingCard(
-                onContinue: () => context.go('/reader'),
+                preview: preview,
+                onContinue: () {
+                  unawaited(
+                    ref
+                        .read(readerViewProvider.notifier)
+                        .openChapter(
+                          preview.location.book,
+                          preview.location.chapter,
+                        ),
+                  );
+                  context.go('/reader');
+                },
               );
               final goalCard = _DailyGoalCard(read: stats.today, goal: goal);
               return wide
@@ -69,8 +83,9 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _ContinueReadingCard extends StatelessWidget {
-  const _ContinueReadingCard({required this.onContinue});
+  const _ContinueReadingCard({required this.preview, required this.onContinue});
 
+  final ReadingPreview preview;
   final VoidCallback onContinue;
 
   @override
@@ -105,14 +120,16 @@ class _ContinueReadingCard extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             Text(
-              'Juan 3',
+              '${preview.location.book.name} ${preview.location.chapter}',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 color: colors.onPrimaryContainer,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '“Porque de tal manera amó Dios al mundo...”',
+              preview.text.isEmpty
+                  ? 'Comienza tu lectura.'
+                  : '“${preview.text}”',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
