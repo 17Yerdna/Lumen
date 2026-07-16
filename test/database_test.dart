@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +29,7 @@ void main() {
     ], 'Una reflexión privada');
     await database.setFavorite(['JOH.3.16'], true);
     await database.setHighlight(['JOH.3.16'], 0xFFFFD166);
+    await database.setDailyGoal(12);
 
     expect(await database.watchReadingActivity().first, hasLength(1));
     expect(
@@ -38,6 +41,22 @@ void main() {
       (await database.watchPreferences().first).single.highlightColor,
       0xFFFFD166,
     );
+    final pending = await database.pendingSyncItems();
+    expect(pending.map((item) => item.entity).toSet(), {
+      'reading_activity',
+      'notes',
+      'verse_preferences',
+      'profiles',
+    });
+    final preference = pending.singleWhere(
+      (item) => item.entity == 'verse_preferences',
+    );
+    expect(jsonDecode(preference.payload), {
+      'verse_id': 'JOH.3.16',
+      'favorite': true,
+      'highlight_color': 0xFFFFD166,
+      'updated_at': isA<String>(),
+    });
     await database.close();
   });
 }

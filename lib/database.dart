@@ -74,6 +74,21 @@ class UserNotes extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('SyncItem')
+class SyncOutbox extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get entity => text()();
+  TextColumn get recordKey => text()();
+  TextColumn get payload => text()();
+  BoolColumn get isDelete => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {entity, recordKey},
+  ];
+}
+
 @DriftDatabase(
   tables: [
     BibleVerses,
@@ -81,6 +96,7 @@ class UserNotes extends Table {
     ReadingActivities,
     VersePreferences,
     UserNotes,
+    SyncOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -88,7 +104,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'lumen_biblia'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -130,6 +146,7 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(versePreferences);
         await migrator.createTable(userNotes);
       }
+      if (from < 3) await migrator.createTable(syncOutbox);
     },
   );
 
@@ -295,6 +312,17 @@ class AppDatabase extends _$AppDatabase {
           ),
           mode: InsertMode.insertOrIgnore,
         );
+        batch.insert(
+          syncOutbox,
+          _syncItem('reading_activity', '$bookCode.$chapter.$verse.$day', {
+            'book_code': bookCode,
+            'chapter': chapter,
+            'verse': verse,
+            'read_day': day,
+            'created_at': now.toUtc().toIso8601String(),
+          }),
+          mode: InsertMode.insertOrReplace,
+        );
       }
     });
   }
@@ -310,26 +338,47 @@ class AppDatabase extends _$AppDatabase {
     final start = sorted.first;
     final end = sorted.last;
     final now = DateTime.now();
+    final id = const Uuid().v4();
     final range = start == end ? '$start' : '$start–$end';
-    await into(userNotes).insert(
-      UserNotesCompanion.insert(
-        id: const Uuid().v4(),
-        bookCode: book.code,
-        chapter: chapter,
-        startVerse: start,
-        endVerse: end,
-        reference: '${book.name} $chapter:$range',
-        body: body.trim(),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-      ),
-    );
+    final reference = '${book.name} $chapter:$range';
+    await batch((batch) {
+      batch.insert(
+        userNotes,
+        UserNotesCompanion.insert(
+          id: id,
+          bookCode: book.code,
+          chapter: chapter,
+          startVerse: start,
+          endVerse: end,
+          reference: reference,
+          body: body.trim(),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+      batch.insert(
+        syncOutbox,
+        _syncItem('notes', id, {
+          'id': id,
+          'book_code': book.code,
+          'chapter': chapter,
+          'start_verse': start,
+          'end_verse': end,
+          'reference': reference,
+          'body': body.trim(),
+          'created_at': now.toUtc().toIso8601String(),
+          'updated_at': now.toUtc().toIso8601String(),
+        }),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
   }
 
   Future<void> setFavorite(Iterable<String> verseIds, bool value) async {
+    final ids = verseIds.toList();
     final now = DateTime.now();
     await batch((batch) {
-      for (final verseId in verseIds) {
+      for (final verseId in ids) {
         batch.insert(
           versePreferences,
           VersePreferencesCompanion.insert(
@@ -346,12 +395,14 @@ class AppDatabase extends _$AppDatabase {
         );
       }
     });
+    await _queuePreferences(ids);
   }
 
   Future<void> setHighlight(Iterable<String> verseIds, int? color) async {
+    final ids = verseIds.toList();
     final now = DateTime.now();
     await batch((batch) {
-      for (final verseId in verseIds) {
+      for (final verseId in ids) {
         batch.insert(
           versePreferences,
           VersePreferencesCompanion.insert(
@@ -368,6 +419,7 @@ class AppDatabase extends _$AppDatabase {
         );
       }
     });
+    await _queuePreferences(ids);
   }
 
   Stream<List<ReadingEntry>> watchReadingActivity() => (select(
@@ -409,8 +461,16 @@ class AppDatabase extends _$AppDatabase {
             .toList(),
       );
 
-  Future<void> deleteNote(String id) =>
-      (delete(userNotes)..where((row) => row.id.equals(id))).go();
+  Future<void> deleteNote(String id) async {
+    await batch((batch) {
+      batch.deleteWhere(userNotes, (row) => row.id.equals(id));
+      batch.insert(
+        syncOutbox,
+        _syncItem('notes', id, {'id': id}, isDelete: true),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
 
   Future<String?> getSetting(String key) async => (await (select(
     appSettings,
@@ -430,6 +490,185 @@ class AppDatabase extends _$AppDatabase {
       AppSettingsCompanion(key: Value(key), value: Value(value)),
     );
   }
+
+  Future<void> setDailyGoal(int goal) async {
+    await batch((batch) {
+      batch.insert(
+        appSettings,
+        AppSettingsCompanion(
+          key: const Value('daily_goal'),
+          value: Value('$goal'),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+      batch.insert(
+        syncOutbox,
+        _syncItem('profiles', 'self', {'daily_goal': goal}),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
+  Future<void> enqueueAllForSync() async {
+    final activities = await select(readingActivities).get();
+    final preferences = await select(versePreferences).get();
+    final notes = await select(userNotes).get();
+    final goal = int.tryParse(await getSetting('daily_goal') ?? '');
+    await batch((batch) {
+      for (final entry in activities) {
+        batch.insert(
+          syncOutbox,
+          _syncItem(
+            'reading_activity',
+            '${entry.bookCode}.${entry.chapter}.${entry.verse}.${entry.readDay}',
+            {
+              'book_code': entry.bookCode,
+              'chapter': entry.chapter,
+              'verse': entry.verse,
+              'read_day': entry.readDay,
+              'created_at': entry.createdAt.toUtc().toIso8601String(),
+            },
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      for (final preference in preferences) {
+        batch.insert(
+          syncOutbox,
+          _preferenceSyncItem(preference),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      for (final note in notes) {
+        batch.insert(
+          syncOutbox,
+          _noteSyncItem(note),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      if (goal != null) {
+        batch.insert(
+          syncOutbox,
+          _syncItem('profiles', 'self', {'daily_goal': goal}),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+  }
+
+  Future<List<SyncItem>> pendingSyncItems() =>
+      (select(syncOutbox)..orderBy([(row) => OrderingTerm.asc(row.id)])).get();
+
+  Future<void> removeSyncItem(int id) =>
+      (delete(syncOutbox)..where((row) => row.id.equals(id))).go();
+
+  Future<void> mergeRemoteReadings(List<Map<String, dynamic>> rows) async {
+    await batch((batch) {
+      for (final row in rows) {
+        batch.insert(
+          readingActivities,
+          ReadingActivitiesCompanion.insert(
+            bookCode: row['book_code'] as String,
+            chapter: row['chapter'] as int,
+            verse: row['verse'] as int,
+            readDay: row['read_day'] as String,
+            createdAt: Value(DateTime.parse(row['created_at'] as String)),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
+  }
+
+  Future<void> mergeRemotePreferences(List<Map<String, dynamic>> rows) async {
+    await batch((batch) {
+      for (final row in rows) {
+        batch.insert(
+          versePreferences,
+          VersePreferencesCompanion.insert(
+            verseId: row['verse_id'] as String,
+            favorite: Value(row['favorite'] as bool? ?? false),
+            highlightColor: Value(row['highlight_color'] as int?),
+            updatedAt: Value(DateTime.parse(row['updated_at'] as String)),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+  }
+
+  Future<void> mergeRemoteNotes(List<Map<String, dynamic>> rows) async {
+    await batch((batch) {
+      for (final row in rows) {
+        batch.insert(
+          userNotes,
+          UserNotesCompanion.insert(
+            id: row['id'] as String,
+            bookCode: row['book_code'] as String,
+            chapter: row['chapter'] as int,
+            startVerse: row['start_verse'] as int,
+            endVerse: row['end_verse'] as int,
+            reference: row['reference'] as String,
+            body: row['body'] as String,
+            createdAt: Value(DateTime.parse(row['created_at'] as String)),
+            updatedAt: Value(DateTime.parse(row['updated_at'] as String)),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
+  }
+
+  Future<void> applyRemoteDailyGoal(int? goal) =>
+      setSetting('daily_goal', goal == null ? null : '$goal');
+
+  Future<void> _queuePreferences(Iterable<String> ids) async {
+    final preferences = await (select(
+      versePreferences,
+    )..where((row) => row.verseId.isIn(ids))).get();
+    await batch((batch) {
+      for (final preference in preferences) {
+        batch.insert(
+          syncOutbox,
+          _preferenceSyncItem(preference),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+  }
+
+  SyncOutboxCompanion _preferenceSyncItem(VersePreference preference) =>
+      _syncItem('verse_preferences', preference.verseId, {
+        'verse_id': preference.verseId,
+        'favorite': preference.favorite,
+        'highlight_color': preference.highlightColor,
+        'updated_at': preference.updatedAt.toUtc().toIso8601String(),
+      });
+
+  SyncOutboxCompanion _noteSyncItem(UserNote note) =>
+      _syncItem('notes', note.id, {
+        'id': note.id,
+        'book_code': note.bookCode,
+        'chapter': note.chapter,
+        'start_verse': note.startVerse,
+        'end_verse': note.endVerse,
+        'reference': note.reference,
+        'body': note.body,
+        'created_at': note.createdAt.toUtc().toIso8601String(),
+        'updated_at': note.updatedAt.toUtc().toIso8601String(),
+      });
+
+  SyncOutboxCompanion _syncItem(
+    String entity,
+    String key,
+    Map<String, Object?> payload, {
+    bool isDelete = false,
+  }) => SyncOutboxCompanion.insert(
+    entity: entity,
+    recordKey: key,
+    payload: jsonEncode(payload),
+    isDelete: Value(isDelete),
+  );
 }
 
 String _dayKey(DateTime date) =>

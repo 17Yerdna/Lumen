@@ -1,12 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'backend.dart';
 import 'bible_catalog.dart';
 import 'database.dart';
+import 'sync.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
   ref.onDispose(database.close);
   return database;
+});
+
+final authSessionProvider = StreamProvider<Session?>((ref) {
+  final client = supabaseClient;
+  if (client == null) return Stream.value(null);
+  return client.auth.onAuthStateChange.map((state) => state.session);
+});
+
+final syncProvider = FutureProvider<void>((ref) async {
+  final client = supabaseClient;
+  final session = ref.watch(authSessionProvider).value;
+  if (client == null || session == null) return;
+  await syncDatabase(ref.watch(databaseProvider), client, session.user.id);
 });
 
 final bibleReadyProvider = FutureProvider<void>(

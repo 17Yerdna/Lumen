@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'adaptive_shell.dart';
+import 'bible_providers.dart';
 import 'screens.dart';
 
 const lumenGreen = Color(0xFF315C4A);
@@ -109,6 +110,7 @@ class _LumenAppState extends ConsumerState<LumenApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    ref.watch(syncProvider);
     return MaterialApp.router(
       title: 'Lumen Biblia',
       debugShowCheckedModeBanner: false,

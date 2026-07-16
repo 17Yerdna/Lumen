@@ -560,6 +560,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await ref
         .read(databaseProvider)
         .markRead(location.book.code, location.chapter, selected);
+    ref.invalidate(syncProvider);
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -574,6 +575,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await ref
         .read(databaseProvider)
         .saveNote(location.book, location.chapter, selected, body);
+    ref.invalidate(syncProvider);
     if (!mounted) return;
     noteController.clear();
     ScaffoldMessenger.of(
@@ -583,6 +585,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _setFavorite(bool value) async {
     await ref.read(databaseProvider).setFavorite(_selectedIds(), value);
+    ref.invalidate(syncProvider);
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -590,8 +593,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  Future<void> _setHighlight(Color color) =>
-      ref.read(databaseProvider).setHighlight(_selectedIds(), color.toARGB32());
+  Future<void> _setHighlight(Color color) async {
+    await ref
+        .read(databaseProvider)
+        .setHighlight(_selectedIds(), color.toARGB32());
+    ref.invalidate(syncProvider);
+  }
 
   void _showNoteSheet() {
     final controller = TextEditingController();
@@ -1073,8 +1080,12 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                             reference: note.reference,
                             body: note.body,
                             date: _shortDate(note.updatedAt),
-                            onDelete: () =>
-                                ref.read(databaseProvider).deleteNote(note.id),
+                            onDelete: () async {
+                              await ref
+                                  .read(databaseProvider)
+                                  .deleteNote(note.id);
+                              ref.invalidate(syncProvider);
+                            },
                           ),
                       ],
                     ),
@@ -1273,7 +1284,8 @@ Future<void> showReadingSettings(BuildContext context, WidgetRef ref) async {
   );
   if (result == null) return;
 
-  await database.setSetting('daily_goal', '${result.$1}');
+  await database.setDailyGoal(result.$1);
+  ref.invalidate(syncProvider);
   try {
     if (result.$2) {
       await reminderService.scheduleDaily(result.$3.hour, result.$3.minute);

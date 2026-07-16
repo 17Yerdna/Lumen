@@ -2005,6 +2005,407 @@ class UserNotesCompanion extends UpdateCompanion<UserNote> {
   }
 }
 
+class $SyncOutboxTable extends SyncOutbox
+    with TableInfo<$SyncOutboxTable, SyncItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _entityMeta = const VerificationMeta('entity');
+  @override
+  late final GeneratedColumn<String> entity = GeneratedColumn<String>(
+    'entity',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordKeyMeta = const VerificationMeta(
+    'recordKey',
+  );
+  @override
+  late final GeneratedColumn<String> recordKey = GeneratedColumn<String>(
+    'record_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeleteMeta = const VerificationMeta(
+    'isDelete',
+  );
+  @override
+  late final GeneratedColumn<bool> isDelete = GeneratedColumn<bool>(
+    'is_delete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_delete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entity,
+    recordKey,
+    payload,
+    isDelete,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('entity')) {
+      context.handle(
+        _entityMeta,
+        entity.isAcceptableOrUnknown(data['entity']!, _entityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityMeta);
+    }
+    if (data.containsKey('record_key')) {
+      context.handle(
+        _recordKeyMeta,
+        recordKey.isAcceptableOrUnknown(data['record_key']!, _recordKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordKeyMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('is_delete')) {
+      context.handle(
+        _isDeleteMeta,
+        isDelete.isAcceptableOrUnknown(data['is_delete']!, _isDeleteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {entity, recordKey},
+  ];
+  @override
+  SyncItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      entity: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity'],
+      )!,
+      recordKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_key'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      isDelete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_delete'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncOutboxTable createAlias(String alias) {
+    return $SyncOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class SyncItem extends DataClass implements Insertable<SyncItem> {
+  final int id;
+  final String entity;
+  final String recordKey;
+  final String payload;
+  final bool isDelete;
+  final DateTime createdAt;
+  const SyncItem({
+    required this.id,
+    required this.entity,
+    required this.recordKey,
+    required this.payload,
+    required this.isDelete,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['entity'] = Variable<String>(entity);
+    map['record_key'] = Variable<String>(recordKey);
+    map['payload'] = Variable<String>(payload);
+    map['is_delete'] = Variable<bool>(isDelete);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SyncOutboxCompanion toCompanion(bool nullToAbsent) {
+    return SyncOutboxCompanion(
+      id: Value(id),
+      entity: Value(entity),
+      recordKey: Value(recordKey),
+      payload: Value(payload),
+      isDelete: Value(isDelete),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SyncItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncItem(
+      id: serializer.fromJson<int>(json['id']),
+      entity: serializer.fromJson<String>(json['entity']),
+      recordKey: serializer.fromJson<String>(json['recordKey']),
+      payload: serializer.fromJson<String>(json['payload']),
+      isDelete: serializer.fromJson<bool>(json['isDelete']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'entity': serializer.toJson<String>(entity),
+      'recordKey': serializer.toJson<String>(recordKey),
+      'payload': serializer.toJson<String>(payload),
+      'isDelete': serializer.toJson<bool>(isDelete),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SyncItem copyWith({
+    int? id,
+    String? entity,
+    String? recordKey,
+    String? payload,
+    bool? isDelete,
+    DateTime? createdAt,
+  }) => SyncItem(
+    id: id ?? this.id,
+    entity: entity ?? this.entity,
+    recordKey: recordKey ?? this.recordKey,
+    payload: payload ?? this.payload,
+    isDelete: isDelete ?? this.isDelete,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SyncItem copyWithCompanion(SyncOutboxCompanion data) {
+    return SyncItem(
+      id: data.id.present ? data.id.value : this.id,
+      entity: data.entity.present ? data.entity.value : this.entity,
+      recordKey: data.recordKey.present ? data.recordKey.value : this.recordKey,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      isDelete: data.isDelete.present ? data.isDelete.value : this.isDelete,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncItem(')
+          ..write('id: $id, ')
+          ..write('entity: $entity, ')
+          ..write('recordKey: $recordKey, ')
+          ..write('payload: $payload, ')
+          ..write('isDelete: $isDelete, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, entity, recordKey, payload, isDelete, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncItem &&
+          other.id == this.id &&
+          other.entity == this.entity &&
+          other.recordKey == this.recordKey &&
+          other.payload == this.payload &&
+          other.isDelete == this.isDelete &&
+          other.createdAt == this.createdAt);
+}
+
+class SyncOutboxCompanion extends UpdateCompanion<SyncItem> {
+  final Value<int> id;
+  final Value<String> entity;
+  final Value<String> recordKey;
+  final Value<String> payload;
+  final Value<bool> isDelete;
+  final Value<DateTime> createdAt;
+  const SyncOutboxCompanion({
+    this.id = const Value.absent(),
+    this.entity = const Value.absent(),
+    this.recordKey = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.isDelete = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SyncOutboxCompanion.insert({
+    this.id = const Value.absent(),
+    required String entity,
+    required String recordKey,
+    required String payload,
+    this.isDelete = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : entity = Value(entity),
+       recordKey = Value(recordKey),
+       payload = Value(payload);
+  static Insertable<SyncItem> custom({
+    Expression<int>? id,
+    Expression<String>? entity,
+    Expression<String>? recordKey,
+    Expression<String>? payload,
+    Expression<bool>? isDelete,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entity != null) 'entity': entity,
+      if (recordKey != null) 'record_key': recordKey,
+      if (payload != null) 'payload': payload,
+      if (isDelete != null) 'is_delete': isDelete,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SyncOutboxCompanion copyWith({
+    Value<int>? id,
+    Value<String>? entity,
+    Value<String>? recordKey,
+    Value<String>? payload,
+    Value<bool>? isDelete,
+    Value<DateTime>? createdAt,
+  }) {
+    return SyncOutboxCompanion(
+      id: id ?? this.id,
+      entity: entity ?? this.entity,
+      recordKey: recordKey ?? this.recordKey,
+      payload: payload ?? this.payload,
+      isDelete: isDelete ?? this.isDelete,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (entity.present) {
+      map['entity'] = Variable<String>(entity.value);
+    }
+    if (recordKey.present) {
+      map['record_key'] = Variable<String>(recordKey.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (isDelete.present) {
+      map['is_delete'] = Variable<bool>(isDelete.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOutboxCompanion(')
+          ..write('id: $id, ')
+          ..write('entity: $entity, ')
+          ..write('recordKey: $recordKey, ')
+          ..write('payload: $payload, ')
+          ..write('isDelete: $isDelete, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2016,6 +2417,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $UserNotesTable userNotes = $UserNotesTable(this);
+  late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2026,6 +2428,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readingActivities,
     versePreferences,
     userNotes,
+    syncOutbox,
   ];
 }
 
@@ -3110,6 +3513,213 @@ typedef $$UserNotesTableProcessedTableManager =
       UserNote,
       PrefetchHooks Function()
     >;
+typedef $$SyncOutboxTableCreateCompanionBuilder =
+    SyncOutboxCompanion Function({
+      Value<int> id,
+      required String entity,
+      required String recordKey,
+      required String payload,
+      Value<bool> isDelete,
+      Value<DateTime> createdAt,
+    });
+typedef $$SyncOutboxTableUpdateCompanionBuilder =
+    SyncOutboxCompanion Function({
+      Value<int> id,
+      Value<String> entity,
+      Value<String> recordKey,
+      Value<String> payload,
+      Value<bool> isDelete,
+      Value<DateTime> createdAt,
+    });
+
+class $$SyncOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entity => $composableBuilder(
+    column: $table.entity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordKey => $composableBuilder(
+    column: $table.recordKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDelete => $composableBuilder(
+    column: $table.isDelete,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entity => $composableBuilder(
+    column: $table.entity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordKey => $composableBuilder(
+    column: $table.recordKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDelete => $composableBuilder(
+    column: $table.isDelete,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncOutboxTable> {
+  $$SyncOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entity =>
+      $composableBuilder(column: $table.entity, builder: (column) => column);
+
+  GeneratedColumn<String> get recordKey =>
+      $composableBuilder(column: $table.recordKey, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDelete =>
+      $composableBuilder(column: $table.isDelete, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SyncOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncOutboxTable,
+          SyncItem,
+          $$SyncOutboxTableFilterComposer,
+          $$SyncOutboxTableOrderingComposer,
+          $$SyncOutboxTableAnnotationComposer,
+          $$SyncOutboxTableCreateCompanionBuilder,
+          $$SyncOutboxTableUpdateCompanionBuilder,
+          (SyncItem, BaseReferences<_$AppDatabase, $SyncOutboxTable, SyncItem>),
+          SyncItem,
+          PrefetchHooks Function()
+        > {
+  $$SyncOutboxTableTableManager(_$AppDatabase db, $SyncOutboxTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncOutboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncOutboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncOutboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> entity = const Value.absent(),
+                Value<String> recordKey = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<bool> isDelete = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SyncOutboxCompanion(
+                id: id,
+                entity: entity,
+                recordKey: recordKey,
+                payload: payload,
+                isDelete: isDelete,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String entity,
+                required String recordKey,
+                required String payload,
+                Value<bool> isDelete = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SyncOutboxCompanion.insert(
+                id: id,
+                entity: entity,
+                recordKey: recordKey,
+                payload: payload,
+                isDelete: isDelete,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncOutboxTable,
+      SyncItem,
+      $$SyncOutboxTableFilterComposer,
+      $$SyncOutboxTableOrderingComposer,
+      $$SyncOutboxTableAnnotationComposer,
+      $$SyncOutboxTableCreateCompanionBuilder,
+      $$SyncOutboxTableUpdateCompanionBuilder,
+      (SyncItem, BaseReferences<_$AppDatabase, $SyncOutboxTable, SyncItem>),
+      SyncItem,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3124,4 +3734,6 @@ class $AppDatabaseManager {
       $$VersePreferencesTableTableManager(_db, _db.versePreferences);
   $$UserNotesTableTableManager get userNotes =>
       $$UserNotesTableTableManager(_db, _db.userNotes);
+  $$SyncOutboxTableTableManager get syncOutbox =>
+      $$SyncOutboxTableTableManager(_db, _db.syncOutbox);
 }

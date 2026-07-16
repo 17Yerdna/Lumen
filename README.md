@@ -32,6 +32,10 @@ flutter run -d windows `
 Sin estas variables, la aplicación funciona en modo invitado y conserva los
 datos localmente.
 
+Al iniciar sesión, la cola local sincroniza progreso, favoritos, resaltados,
+notas y meta diaria con Supabase. El esquema reproducible y sus políticas RLS
+están en `supabase/migrations/202607160001_initial.sql`.
+
 ## Integración continua
 
 - GitHub Actions valida análisis, tests, APK Android y build Windows.
