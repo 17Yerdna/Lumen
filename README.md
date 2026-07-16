@@ -54,9 +54,12 @@ Los límites y el modelo pueden cambiarse con `ASSISTANT_DAILY_LIMIT`,
 
 ## Integración continua
 
-- GitHub Actions valida análisis, tests, APK Android y build Windows.
+- GitHub Actions valida análisis, tests, APK/AAB Android, build Windows y MSIX.
 - Codemagic compila iOS sin firma. Para activarlo, conecta este repositorio en
   Codemagic y selecciona `codemagic.yaml`.
+
+Los pasos de empaquetado, firma y publicación están en
+[`docs/release.md`](docs/release.md).
 
 ## Contenido bíblico
 

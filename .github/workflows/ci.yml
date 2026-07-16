@@ -17,11 +17,14 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build apk --debug
+      - run: flutter build apk --release
+      - run: flutter build appbundle --release
       - uses: actions/upload-artifact@v4
         with:
-          name: lumen-android-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: lumen-android-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
 
   windows:
     runs-on: windows-latest
@@ -32,8 +35,12 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build windows --debug
+      - run: flutter build windows --release
+      - shell: pwsh
+        run: ./scripts/package_windows.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: lumen-windows-debug
-          path: build/windows/x64/runner/Debug/
+          name: lumen-windows-release
+          path: |
+            build/windows/x64/runner/Release/
+            build/release/LumenBiblia.msix
