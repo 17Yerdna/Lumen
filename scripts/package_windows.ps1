@@ -70,5 +70,6 @@ if (-not $makeAppx) { throw "MakeAppx no está instalado." }
 New-Item -ItemType Directory -Path (Split-Path $OutputPath) -Force | Out-Null
 & $makeAppx pack /d $staging /p $OutputPath /o
 if ($LASTEXITCODE -ne 0) { throw "MakeAppx terminó con error $LASTEXITCODE." }
+Remove-Item -LiteralPath $staging -Recurse -Force
 Write-Host "MSIX creado: $OutputPath"
 Write-Host "El paquete está sin firmar; firma el artefacto antes de distribuirlo."
