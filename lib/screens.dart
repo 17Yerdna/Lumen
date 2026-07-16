@@ -432,6 +432,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     selected: selected,
                     location: location,
                     noteController: noteController,
+                    onExplain: _openAssistant,
                     onMarkRead: _markRead,
                     onSaveNote: _saveNote,
                     onFavorite: () => _setFavorite(true),
@@ -466,7 +467,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           ),
                           IconButton(
                             tooltip: 'Explicar',
-                            onPressed: () => context.push('/assistant'),
+                            onPressed: _openAssistant,
                             icon: const Icon(Icons.auto_awesome_outlined),
                           ),
                         ],
@@ -552,6 +553,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final location = ref.read(readerLocationProvider);
     return selected.map(
       (verse) => '${location.book.code}.${location.chapter}.$verse',
+    );
+  }
+
+  void _openAssistant() {
+    final location = ref.read(readerLocationProvider);
+    final numbers = selected.toList()..sort();
+    final verses =
+        (ref.read(chapterVersesProvider).value ?? const <BibleVerse>[])
+            .where((verse) => selected.contains(verse.verse))
+            .toList();
+    if (numbers.isEmpty || verses.isEmpty) return;
+    final consecutive = numbers.indexed.every(
+      (item) => item.$2 == numbers.first + item.$1,
+    );
+    final verseLabel = numbers.length == 1
+        ? '${numbers.first}'
+        : consecutive
+        ? '${numbers.first}–${numbers.last}'
+        : numbers.join(', ');
+    context.push(
+      '/assistant',
+      extra: AssistantPassage(
+        reference: '${location.book.name} ${location.chapter}:$verseLabel',
+        text: verses.map((verse) => '${verse.verse} ${verse.body}').join('\n'),
+      ),
     );
   }
 
@@ -791,6 +817,7 @@ class _StudyPanel extends StatelessWidget {
     required this.selected,
     required this.location,
     required this.noteController,
+    required this.onExplain,
     required this.onMarkRead,
     required this.onSaveNote,
     required this.onFavorite,
@@ -800,6 +827,7 @@ class _StudyPanel extends StatelessWidget {
   final Set<int> selected;
   final ReaderLocation location;
   final TextEditingController noteController;
+  final VoidCallback onExplain;
   final VoidCallback onMarkRead;
   final VoidCallback onSaveNote;
   final VoidCallback onFavorite;
@@ -821,7 +849,7 @@ class _StudyPanel extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         FilledButton.icon(
-          onPressed: selected.isEmpty ? null : () => context.push('/assistant'),
+          onPressed: selected.isEmpty ? null : onExplain,
           icon: const Icon(Icons.auto_awesome_rounded),
           label: const Text('Explicar este pasaje'),
         ),
@@ -1682,11 +1710,65 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 }
 
-class AssistantScreen extends StatelessWidget {
-  const AssistantScreen({super.key});
+class AssistantScreen extends ConsumerStatefulWidget {
+  const AssistantScreen({required this.passage, super.key});
+
+  final AssistantPassage? passage;
+
+  @override
+  ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
+}
+
+class _AssistantScreenState extends ConsumerState<AssistantScreen> {
+  final questionController = TextEditingController();
+  String answer = '';
+  String? error;
+  bool loading = false;
+
+  @override
+  void dispose() {
+    questionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> explain() async {
+    final passage = widget.passage;
+    if (passage == null || loading) return;
+    final question = questionController.text.trim().isEmpty
+        ? 'Explica este pasaje en su contexto.'
+        : questionController.text.trim();
+    setState(() {
+      loading = true;
+      answer = '';
+      error = null;
+    });
+    try {
+      await for (final delta in explainPassage(passage, question: question)) {
+        if (!mounted) return;
+        setState(() => answer += delta);
+      }
+      if (!mounted || answer.trim().isEmpty) return;
+      await ref
+          .read(databaseProvider)
+          .saveAssistantConversation(
+            reference: passage.reference,
+            passageText: passage.text,
+            question: question,
+            answer: answer.trim(),
+          );
+      ref.invalidate(syncProvider);
+    } catch (exception) {
+      if (mounted) setState(() => error = _friendlyError(exception));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final passage = widget.passage;
+    final signedIn = supabaseClient?.auth.currentUser != null;
+    final history = ref.watch(assistantConversationsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Explicar pasaje'),
@@ -1705,34 +1787,88 @@ class AssistantScreen extends StatelessWidget {
               children: [
                 Card(
                   color: Theme.of(context).colorScheme.primaryContainer,
-                  child: const Padding(
-                    padding: EdgeInsets.all(18),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
                     child: Text(
-                      'Juan 3:16\n“Porque de tal manera amó Dios al mundo...”',
+                      passage == null
+                          ? 'Selecciona uno o más versículos en el lector.'
+                          : '${passage.reference}\n${passage.text}',
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Asistente contextual',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          'La explicación con fuentes adventistas estará disponible al conectar el servicio seguro. La clave de IA nunca se almacenará en la aplicación.',
-                        ),
-                      ],
+                if (!signedIn)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.lock_outline_rounded),
+                      title: const Text('Inicia sesión para preguntar'),
+                      subtitle: const Text(
+                        'Las explicaciones usan una función segura con cuota diaria.',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/account'),
+                    ),
+                  )
+                else if (answer.isEmpty && !loading)
+                  FilledButton.icon(
+                    onPressed: passage == null ? null : explain,
+                    icon: const Icon(Icons.auto_awesome_rounded),
+                    label: const Text('Generar explicación'),
+                  ),
+                if (loading) ...[
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 12),
+                  const Text('Estudiando el contexto y las fuentes…'),
+                ],
+                if (answer.isNotEmpty) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SelectableText(answer),
                     ),
                   ),
+                  const Text(
+                    'La IA puede equivocarse. Contrasta la respuesta con la Biblia y las fuentes enlazadas.',
+                  ),
+                ],
+                if (error != null)
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(error!),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  'Consultas guardadas',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 10),
+                history.when(
+                  data: (items) => items.isEmpty
+                      ? const Text('Aún no hay explicaciones guardadas.')
+                      : Column(
+                          children: [
+                            for (final item in items.take(5))
+                              Card(
+                                child: ExpansionTile(
+                                  title: Text(item.reference),
+                                  subtitle: Text(item.question),
+                                  childrenPadding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    0,
+                                    18,
+                                    18,
+                                  ),
+                                  children: [SelectableText(item.answer)],
+                                ),
+                              ),
+                          ],
+                        ),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) =>
+                      const Text('No se pudo abrir el historial local.'),
                 ),
               ],
             ),
@@ -1744,8 +1880,11 @@ class AssistantScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: TextField(
+                  controller: questionController,
+                  enabled: signedIn && !loading,
+                  onSubmitted: (_) => explain(),
                   decoration: InputDecoration(
                     hintText: 'Haz una pregunta sobre el pasaje...',
                   ),
@@ -1753,7 +1892,10 @@ class AssistantScreen extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               IconButton.filled(
-                onPressed: null,
+                tooltip: 'Enviar pregunta',
+                onPressed: signedIn && passage != null && !loading
+                    ? explain
+                    : null,
                 icon: const Icon(Icons.send_rounded),
               ),
             ],
@@ -1761,5 +1903,12 @@ class AssistantScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _friendlyError(Object exception) {
+    final message = exception.toString().replaceFirst('Bad state: ', '');
+    return message.startsWith('ClientException')
+        ? 'No hay conexión. Tus explicaciones anteriores siguen disponibles.'
+        : message;
   }
 }

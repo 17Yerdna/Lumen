@@ -6,13 +6,16 @@ import 'package:lumen_biblia/adaptive_shell.dart';
 import 'package:lumen_biblia/app.dart';
 import 'package:lumen_biblia/bible_catalog.dart';
 import 'package:lumen_biblia/bible_providers.dart';
+import 'package:lumen_biblia/backend.dart';
 import 'package:lumen_biblia/database.dart';
+import 'package:lumen_biblia/screens.dart';
 
 List<Override> emptyUserDataOverrides() => [
   readingActivityProvider.overrideWith((ref) => Stream.value(const [])),
   notesProvider.overrideWith((ref) => Stream.value(const [])),
   versePreferencesProvider.overrideWith((ref) => Stream.value(const [])),
   favoritesProvider.overrideWith((ref) => Stream.value(const [])),
+  assistantConversationsProvider.overrideWith((ref) => Stream.value(const [])),
   dailyGoalProvider.overrideWith((ref) => Stream.value(10)),
 ];
 
@@ -61,9 +64,27 @@ void main() {
     expect(stats.bestStreak, 3);
   });
 
+  test('assistant parser only returns text deltas', () {
+    expect(
+      parseAssistantDelta(
+        'data: {"type":"response.output_text.delta","delta":"Hola"}',
+      ),
+      'Hola',
+    );
+    expect(parseAssistantDelta('data: {"type":"response.completed"}'), isNull);
+    expect(
+      () => parseAssistantDelta(
+        'data: {"type":"error","error":{"message":"falló"}}',
+      ),
+      throwsStateError,
+    );
+  });
+
   for (final testCase in [
     (375.0, 'compact-navigation'),
+    (430.0, 'compact-navigation'),
     (800.0, 'medium-navigation'),
+    (1024.0, 'expanded-navigation'),
     (1440.0, 'expanded-navigation'),
   ]) {
     testWidgets('renders ${testCase.$2} at ${testCase.$1.toInt()}px', (
@@ -86,6 +107,34 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('assistant passage fits a compact screen', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(393, 852);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: emptyUserDataOverrides(),
+        child: const MaterialApp(
+          home: AssistantScreen(
+            passage: AssistantPassage(
+              reference: 'Juan 3:16',
+              text: '16 Porque de tal manera amó Dios al mundo.',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Juan 3:16\n16 Porque de tal manera amó Dios al mundo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Inicia sesión para preguntar'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('compact navigation opens the reader', (tester) async {
     tester.view.devicePixelRatio = 1;

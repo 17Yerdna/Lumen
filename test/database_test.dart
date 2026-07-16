@@ -30,6 +30,12 @@ void main() {
     await database.setFavorite(['JOH.3.16'], true);
     await database.setHighlight(['JOH.3.16'], 0xFFFFD166);
     await database.setDailyGoal(12);
+    await database.saveAssistantConversation(
+      reference: 'Juan 3:16',
+      passageText: '16 Porque de tal manera amó Dios al mundo.',
+      question: 'Explícalo.',
+      answer: 'Una explicación guardada.',
+    );
 
     expect(await database.watchReadingActivity().first, hasLength(1));
     expect(
@@ -47,6 +53,7 @@ void main() {
       'notes',
       'verse_preferences',
       'profiles',
+      'assistant_conversations',
     });
     final preference = pending.singleWhere(
       (item) => item.entity == 'verse_preferences',
@@ -57,6 +64,10 @@ void main() {
       'highlight_color': 0xFFFFD166,
       'updated_at': isA<String>(),
     });
+    expect(
+      (await database.watchAssistantConversations().first).single.answer,
+      'Una explicación guardada.',
+    );
     await database.close();
   });
 }

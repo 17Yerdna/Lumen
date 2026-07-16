@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'adaptive_shell.dart';
+import 'backend.dart';
 import 'bible_providers.dart';
 import 'screens.dart';
 
@@ -174,7 +175,11 @@ GoRouter _buildRouter() {
       ),
       GoRoute(
         path: '/assistant',
-        builder: (context, state) => const AssistantScreen(),
+        builder: (context, state) => AssistantScreen(
+          passage: state.extra is AssistantPassage
+              ? state.extra as AssistantPassage
+              : null,
+        ),
       ),
       GoRoute(
         path: '/account',

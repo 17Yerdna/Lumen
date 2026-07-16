@@ -36,6 +36,22 @@ Al iniciar sesión, la cola local sincroniza progreso, favoritos, resaltados,
 notas y meta diaria con Supabase. El esquema reproducible y sus políticas RLS
 están en `supabase/migrations/202607160001_initial.sql`.
 
+## Asistente contextual
+
+La aplicación llama a `explain-passage`, nunca directamente a OpenAI. Para
+habilitarlo en Supabase:
+
+```powershell
+supabase db push
+supabase secrets set OPENAI_API_KEY=tu_clave
+supabase functions deploy explain-passage
+```
+
+La función usa `gpt-5.6-luna`, conserva la clave solo como secreto del servidor
+y limita por defecto a 10 consultas por usuario al día y 1000 globales al mes.
+Los límites y el modelo pueden cambiarse con `ASSISTANT_DAILY_LIMIT`,
+`ASSISTANT_MONTHLY_LIMIT` y `OPENAI_MODEL`.
+
 ## Integración continua
 
 - GitHub Actions valida análisis, tests, APK Android y build Windows.

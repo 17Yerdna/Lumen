@@ -91,6 +91,11 @@ final favoritesProvider = StreamProvider<List<BibleVerse>>(
   (ref) => ref.watch(databaseProvider).watchFavorites(),
 );
 
+final assistantConversationsProvider =
+    StreamProvider<List<AssistantConversation>>(
+      (ref) => ref.watch(databaseProvider).watchAssistantConversations(),
+    );
+
 final dailyGoalProvider = StreamProvider<int>(
   (ref) => ref
       .watch(databaseProvider)

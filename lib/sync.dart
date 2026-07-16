@@ -34,6 +34,7 @@ Future<void> syncDatabase(
   final readings = await client.from('reading_activity').select();
   final preferences = await client.from('verse_preferences').select();
   final notes = await client.from('notes').select();
+  final conversations = await client.from('assistant_conversations').select();
   final profile = await client
       .from('profiles')
       .select('daily_goal')
@@ -43,6 +44,7 @@ Future<void> syncDatabase(
   // ponytail: v1 notes are append-only, so device UUIDs preserve both versions.
   // Add note revisions only when editing notes ships.
   await database.mergeRemoteNotes(notes);
+  await database.mergeRemoteConversations(conversations);
   await database.applyRemoteDailyGoal(profile?['daily_goal'] as int?);
   await database.setSetting('synced_user_id', userId);
 }
@@ -52,4 +54,5 @@ const _conflicts = {
   'reading_activity': 'user_id,book_code,chapter,verse,read_day',
   'verse_preferences': 'user_id,verse_id',
   'notes': 'id',
+  'assistant_conversations': 'id',
 };

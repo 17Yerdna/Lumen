@@ -74,6 +74,19 @@ class UserNotes extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('AssistantConversation')
+class AssistantConversations extends Table {
+  TextColumn get id => text()();
+  TextColumn get reference => text()();
+  TextColumn get passageText => text()();
+  TextColumn get question => text()();
+  TextColumn get answer => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('SyncItem')
 class SyncOutbox extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -96,6 +109,7 @@ class SyncOutbox extends Table {
     ReadingActivities,
     VersePreferences,
     UserNotes,
+    AssistantConversations,
     SyncOutbox,
   ],
 )
@@ -104,7 +118,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'lumen_biblia'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -147,6 +161,7 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(userNotes);
       }
       if (from < 3) await migrator.createTable(syncOutbox);
+      if (from < 4) await migrator.createTable(assistantConversations);
     },
   );
 
@@ -509,10 +524,50 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Stream<List<AssistantConversation>> watchAssistantConversations() =>
+      (select(assistantConversations)
+            ..orderBy([(row) => OrderingTerm.desc(row.createdAt)])
+            ..limit(20))
+          .watch();
+
+  Future<void> saveAssistantConversation({
+    required String reference,
+    required String passageText,
+    required String question,
+    required String answer,
+  }) async {
+    final id = const Uuid().v4();
+    final now = DateTime.now();
+    final conversation = AssistantConversationsCompanion.insert(
+      id: id,
+      reference: reference,
+      passageText: passageText,
+      question: question,
+      answer: answer,
+      createdAt: Value(now),
+    );
+    await batch((batch) {
+      batch.insert(assistantConversations, conversation);
+      batch.insert(
+        syncOutbox,
+        _syncItem('assistant_conversations', id, {
+          'id': id,
+          'reference': reference,
+          'passage_text': passageText,
+          'question': question,
+          'answer': answer,
+          'created_at': now.toUtc().toIso8601String(),
+        }),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
   Future<void> enqueueAllForSync() async {
     final activities = await select(readingActivities).get();
     final preferences = await select(versePreferences).get();
     final notes = await select(userNotes).get();
+    final conversations = await select(assistantConversations).get();
     final goal = int.tryParse(await getSetting('daily_goal') ?? '');
     await batch((batch) {
       for (final entry in activities) {
@@ -543,6 +598,13 @@ class AppDatabase extends _$AppDatabase {
         batch.insert(
           syncOutbox,
           _noteSyncItem(note),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      for (final conversation in conversations) {
+        batch.insert(
+          syncOutbox,
+          _conversationSyncItem(conversation),
           mode: InsertMode.insertOrReplace,
         );
       }
@@ -619,6 +681,25 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> mergeRemoteConversations(List<Map<String, dynamic>> rows) async {
+    await batch((batch) {
+      for (final row in rows) {
+        batch.insert(
+          assistantConversations,
+          AssistantConversationsCompanion.insert(
+            id: row['id'] as String,
+            reference: row['reference'] as String,
+            passageText: row['passage_text'] as String,
+            question: row['question'] as String,
+            answer: row['answer'] as String,
+            createdAt: Value(DateTime.parse(row['created_at'] as String)),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
+  }
+
   Future<void> applyRemoteDailyGoal(int? goal) =>
       setSetting('daily_goal', goal == null ? null : '$goal');
 
@@ -657,6 +738,17 @@ class AppDatabase extends _$AppDatabase {
         'created_at': note.createdAt.toUtc().toIso8601String(),
         'updated_at': note.updatedAt.toUtc().toIso8601String(),
       });
+
+  SyncOutboxCompanion _conversationSyncItem(
+    AssistantConversation conversation,
+  ) => _syncItem('assistant_conversations', conversation.id, {
+    'id': conversation.id,
+    'reference': conversation.reference,
+    'passage_text': conversation.passageText,
+    'question': conversation.question,
+    'answer': conversation.answer,
+    'created_at': conversation.createdAt.toUtc().toIso8601String(),
+  });
 
   SyncOutboxCompanion _syncItem(
     String entity,

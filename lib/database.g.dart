@@ -2005,6 +2005,421 @@ class UserNotesCompanion extends UpdateCompanion<UserNote> {
   }
 }
 
+class $AssistantConversationsTable extends AssistantConversations
+    with TableInfo<$AssistantConversationsTable, AssistantConversation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AssistantConversationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _referenceMeta = const VerificationMeta(
+    'reference',
+  );
+  @override
+  late final GeneratedColumn<String> reference = GeneratedColumn<String>(
+    'reference',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _passageTextMeta = const VerificationMeta(
+    'passageText',
+  );
+  @override
+  late final GeneratedColumn<String> passageText = GeneratedColumn<String>(
+    'passage_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _questionMeta = const VerificationMeta(
+    'question',
+  );
+  @override
+  late final GeneratedColumn<String> question = GeneratedColumn<String>(
+    'question',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _answerMeta = const VerificationMeta('answer');
+  @override
+  late final GeneratedColumn<String> answer = GeneratedColumn<String>(
+    'answer',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    reference,
+    passageText,
+    question,
+    answer,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'assistant_conversations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AssistantConversation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('reference')) {
+      context.handle(
+        _referenceMeta,
+        reference.isAcceptableOrUnknown(data['reference']!, _referenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_referenceMeta);
+    }
+    if (data.containsKey('passage_text')) {
+      context.handle(
+        _passageTextMeta,
+        passageText.isAcceptableOrUnknown(
+          data['passage_text']!,
+          _passageTextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_passageTextMeta);
+    }
+    if (data.containsKey('question')) {
+      context.handle(
+        _questionMeta,
+        question.isAcceptableOrUnknown(data['question']!, _questionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_questionMeta);
+    }
+    if (data.containsKey('answer')) {
+      context.handle(
+        _answerMeta,
+        answer.isAcceptableOrUnknown(data['answer']!, _answerMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_answerMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AssistantConversation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AssistantConversation(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      reference: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference'],
+      )!,
+      passageText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}passage_text'],
+      )!,
+      question: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}question'],
+      )!,
+      answer: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}answer'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AssistantConversationsTable createAlias(String alias) {
+    return $AssistantConversationsTable(attachedDatabase, alias);
+  }
+}
+
+class AssistantConversation extends DataClass
+    implements Insertable<AssistantConversation> {
+  final String id;
+  final String reference;
+  final String passageText;
+  final String question;
+  final String answer;
+  final DateTime createdAt;
+  const AssistantConversation({
+    required this.id,
+    required this.reference,
+    required this.passageText,
+    required this.question,
+    required this.answer,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['reference'] = Variable<String>(reference);
+    map['passage_text'] = Variable<String>(passageText);
+    map['question'] = Variable<String>(question);
+    map['answer'] = Variable<String>(answer);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AssistantConversationsCompanion toCompanion(bool nullToAbsent) {
+    return AssistantConversationsCompanion(
+      id: Value(id),
+      reference: Value(reference),
+      passageText: Value(passageText),
+      question: Value(question),
+      answer: Value(answer),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AssistantConversation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AssistantConversation(
+      id: serializer.fromJson<String>(json['id']),
+      reference: serializer.fromJson<String>(json['reference']),
+      passageText: serializer.fromJson<String>(json['passageText']),
+      question: serializer.fromJson<String>(json['question']),
+      answer: serializer.fromJson<String>(json['answer']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'reference': serializer.toJson<String>(reference),
+      'passageText': serializer.toJson<String>(passageText),
+      'question': serializer.toJson<String>(question),
+      'answer': serializer.toJson<String>(answer),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AssistantConversation copyWith({
+    String? id,
+    String? reference,
+    String? passageText,
+    String? question,
+    String? answer,
+    DateTime? createdAt,
+  }) => AssistantConversation(
+    id: id ?? this.id,
+    reference: reference ?? this.reference,
+    passageText: passageText ?? this.passageText,
+    question: question ?? this.question,
+    answer: answer ?? this.answer,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AssistantConversation copyWithCompanion(
+    AssistantConversationsCompanion data,
+  ) {
+    return AssistantConversation(
+      id: data.id.present ? data.id.value : this.id,
+      reference: data.reference.present ? data.reference.value : this.reference,
+      passageText: data.passageText.present
+          ? data.passageText.value
+          : this.passageText,
+      question: data.question.present ? data.question.value : this.question,
+      answer: data.answer.present ? data.answer.value : this.answer,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssistantConversation(')
+          ..write('id: $id, ')
+          ..write('reference: $reference, ')
+          ..write('passageText: $passageText, ')
+          ..write('question: $question, ')
+          ..write('answer: $answer, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, reference, passageText, question, answer, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AssistantConversation &&
+          other.id == this.id &&
+          other.reference == this.reference &&
+          other.passageText == this.passageText &&
+          other.question == this.question &&
+          other.answer == this.answer &&
+          other.createdAt == this.createdAt);
+}
+
+class AssistantConversationsCompanion
+    extends UpdateCompanion<AssistantConversation> {
+  final Value<String> id;
+  final Value<String> reference;
+  final Value<String> passageText;
+  final Value<String> question;
+  final Value<String> answer;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AssistantConversationsCompanion({
+    this.id = const Value.absent(),
+    this.reference = const Value.absent(),
+    this.passageText = const Value.absent(),
+    this.question = const Value.absent(),
+    this.answer = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AssistantConversationsCompanion.insert({
+    required String id,
+    required String reference,
+    required String passageText,
+    required String question,
+    required String answer,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       reference = Value(reference),
+       passageText = Value(passageText),
+       question = Value(question),
+       answer = Value(answer);
+  static Insertable<AssistantConversation> custom({
+    Expression<String>? id,
+    Expression<String>? reference,
+    Expression<String>? passageText,
+    Expression<String>? question,
+    Expression<String>? answer,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (reference != null) 'reference': reference,
+      if (passageText != null) 'passage_text': passageText,
+      if (question != null) 'question': question,
+      if (answer != null) 'answer': answer,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AssistantConversationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? reference,
+    Value<String>? passageText,
+    Value<String>? question,
+    Value<String>? answer,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AssistantConversationsCompanion(
+      id: id ?? this.id,
+      reference: reference ?? this.reference,
+      passageText: passageText ?? this.passageText,
+      question: question ?? this.question,
+      answer: answer ?? this.answer,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (reference.present) {
+      map['reference'] = Variable<String>(reference.value);
+    }
+    if (passageText.present) {
+      map['passage_text'] = Variable<String>(passageText.value);
+    }
+    if (question.present) {
+      map['question'] = Variable<String>(question.value);
+    }
+    if (answer.present) {
+      map['answer'] = Variable<String>(answer.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssistantConversationsCompanion(')
+          ..write('id: $id, ')
+          ..write('reference: $reference, ')
+          ..write('passageText: $passageText, ')
+          ..write('question: $question, ')
+          ..write('answer: $answer, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncOutboxTable extends SyncOutbox
     with TableInfo<$SyncOutboxTable, SyncItem> {
   @override
@@ -2417,6 +2832,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $UserNotesTable userNotes = $UserNotesTable(this);
+  late final $AssistantConversationsTable assistantConversations =
+      $AssistantConversationsTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -2428,6 +2845,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readingActivities,
     versePreferences,
     userNotes,
+    assistantConversations,
     syncOutbox,
   ];
 }
@@ -3513,6 +3931,246 @@ typedef $$UserNotesTableProcessedTableManager =
       UserNote,
       PrefetchHooks Function()
     >;
+typedef $$AssistantConversationsTableCreateCompanionBuilder =
+    AssistantConversationsCompanion Function({
+      required String id,
+      required String reference,
+      required String passageText,
+      required String question,
+      required String answer,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$AssistantConversationsTableUpdateCompanionBuilder =
+    AssistantConversationsCompanion Function({
+      Value<String> id,
+      Value<String> reference,
+      Value<String> passageText,
+      Value<String> question,
+      Value<String> answer,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$AssistantConversationsTableFilterComposer
+    extends Composer<_$AppDatabase, $AssistantConversationsTable> {
+  $$AssistantConversationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passageText => $composableBuilder(
+    column: $table.passageText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get answer => $composableBuilder(
+    column: $table.answer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AssistantConversationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AssistantConversationsTable> {
+  $$AssistantConversationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get passageText => $composableBuilder(
+    column: $table.passageText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get answer => $composableBuilder(
+    column: $table.answer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AssistantConversationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AssistantConversationsTable> {
+  $$AssistantConversationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get reference =>
+      $composableBuilder(column: $table.reference, builder: (column) => column);
+
+  GeneratedColumn<String> get passageText => $composableBuilder(
+    column: $table.passageText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get question =>
+      $composableBuilder(column: $table.question, builder: (column) => column);
+
+  GeneratedColumn<String> get answer =>
+      $composableBuilder(column: $table.answer, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AssistantConversationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AssistantConversationsTable,
+          AssistantConversation,
+          $$AssistantConversationsTableFilterComposer,
+          $$AssistantConversationsTableOrderingComposer,
+          $$AssistantConversationsTableAnnotationComposer,
+          $$AssistantConversationsTableCreateCompanionBuilder,
+          $$AssistantConversationsTableUpdateCompanionBuilder,
+          (
+            AssistantConversation,
+            BaseReferences<
+              _$AppDatabase,
+              $AssistantConversationsTable,
+              AssistantConversation
+            >,
+          ),
+          AssistantConversation,
+          PrefetchHooks Function()
+        > {
+  $$AssistantConversationsTableTableManager(
+    _$AppDatabase db,
+    $AssistantConversationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AssistantConversationsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$AssistantConversationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AssistantConversationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> reference = const Value.absent(),
+                Value<String> passageText = const Value.absent(),
+                Value<String> question = const Value.absent(),
+                Value<String> answer = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssistantConversationsCompanion(
+                id: id,
+                reference: reference,
+                passageText: passageText,
+                question: question,
+                answer: answer,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String reference,
+                required String passageText,
+                required String question,
+                required String answer,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssistantConversationsCompanion.insert(
+                id: id,
+                reference: reference,
+                passageText: passageText,
+                question: question,
+                answer: answer,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AssistantConversationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AssistantConversationsTable,
+      AssistantConversation,
+      $$AssistantConversationsTableFilterComposer,
+      $$AssistantConversationsTableOrderingComposer,
+      $$AssistantConversationsTableAnnotationComposer,
+      $$AssistantConversationsTableCreateCompanionBuilder,
+      $$AssistantConversationsTableUpdateCompanionBuilder,
+      (
+        AssistantConversation,
+        BaseReferences<
+          _$AppDatabase,
+          $AssistantConversationsTable,
+          AssistantConversation
+        >,
+      ),
+      AssistantConversation,
+      PrefetchHooks Function()
+    >;
 typedef $$SyncOutboxTableCreateCompanionBuilder =
     SyncOutboxCompanion Function({
       Value<int> id,
@@ -3734,6 +4392,11 @@ class $AppDatabaseManager {
       $$VersePreferencesTableTableManager(_db, _db.versePreferences);
   $$UserNotesTableTableManager get userNotes =>
       $$UserNotesTableTableManager(_db, _db.userNotes);
+  $$AssistantConversationsTableTableManager get assistantConversations =>
+      $$AssistantConversationsTableTableManager(
+        _db,
+        _db.assistantConversations,
+      );
   $$SyncOutboxTableTableManager get syncOutbox =>
       $$SyncOutboxTableTableManager(_db, _db.syncOutbox);
 }
