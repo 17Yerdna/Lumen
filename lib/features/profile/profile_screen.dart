@@ -1,0 +1,195 @@
+part of '../../screens.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activity =
+        ref.watch(readingActivityProvider).value ?? const <ReadingEntry>[];
+    final notes = ref.watch(notesProvider).value ?? const <UserNote>[];
+    final stats = calculateReadingStats(activity, DateTime.now());
+    return PageFrame(
+      maxWidth: 1050,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ScreenHeading(
+            title: 'Tu camino de lectura',
+            subtitle: 'Perfil privado · Modo invitado',
+            trailing: IconButton.filledTonal(
+              onPressed: () => showReadingSettings(context, ref),
+              tooltip: 'Configuración',
+              icon: const Icon(Icons.settings_outlined),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const _AccountSummary(),
+          const SizedBox(height: 22),
+          _ProfileSummary(stats: stats, noteCount: notes.length),
+          const SizedBox(height: 22),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Últimos 365 días',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'La intensidad representa cuántos versículos leíste cada día.',
+                  ),
+                  const SizedBox(height: 20),
+                  _ActivityHeatmap(byDay: stats.byDay),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSummary extends StatelessWidget {
+  const _AccountSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    final client = supabaseClient;
+    if (client == null) {
+      return const Card(
+        child: ListTile(
+          leading: CircleAvatar(child: Icon(Icons.cloud_off_outlined)),
+          title: Text('Modo invitado'),
+          subtitle: Text('La sincronización remota aún no está configurada.'),
+        ),
+      );
+    }
+    return StreamBuilder(
+      stream: client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final user = client.auth.currentUser;
+        return Card(
+          child: ListTile(
+            leading: CircleAvatar(
+              child: Icon(
+                user == null ? Icons.person_outline : Icons.cloud_done_outlined,
+              ),
+            ),
+            title: Text(user?.email ?? 'Modo invitado'),
+            subtitle: Text(
+              user == null
+                  ? 'Inicia sesión para sincronizar entre dispositivos.'
+                  : 'Cuenta conectada · Datos privados',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/account'),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileSummary extends StatelessWidget {
+  const _ProfileSummary({required this.stats, required this.noteCount});
+
+  final ReadingStats stats;
+  final int noteCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('${stats.total}', 'Versículos'),
+      ('${stats.currentStreak}', 'Racha actual'),
+      ('${stats.bestStreak}', 'Mejor racha'),
+      ('$noteCount', 'Notas'),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Wrap(
+          spacing: 40,
+          runSpacing: 20,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: 130,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.$1,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    Text(item.$2),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityHeatmap extends StatelessWidget {
+  const _ActivityHeatmap({required this.byDay});
+
+  final Map<String, int> byDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cell = constraints.maxWidth < 500 ? 8.0 : 11.0;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            height: 7 * cell + 18,
+            child: Wrap(
+              direction: Axis.vertical,
+              spacing: 3,
+              runSpacing: 3,
+              children: List.generate(365, (index) {
+                final date = DateTime.now().subtract(
+                  Duration(days: 364 - index),
+                );
+                final key =
+                    '${date.year.toString().padLeft(4, '0')}-'
+                    '${date.month.toString().padLeft(2, '0')}-'
+                    '${date.day.toString().padLeft(2, '0')}';
+                final value = byDay[key] ?? 0;
+                final intensity = value == 0
+                    ? 0.08
+                    : value < 4
+                    ? .25
+                    : value < 7
+                    ? .5
+                    : value < 10
+                    ? .72
+                    : 1.0;
+                return Tooltip(
+                  message: '$key · $value versículos',
+                  child: Container(
+                    width: cell,
+                    height: cell,
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: intensity),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
