@@ -1,7 +1,13 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'bible_catalog.dart';
+import 'bible_providers.dart';
+import 'database.dart';
 
 class PageFrame extends StatelessWidget {
   const PageFrame({required this.child, this.maxWidth = 1180, super.key});
@@ -324,26 +330,15 @@ class _RecentActivity extends StatelessWidget {
   }
 }
 
-class ReaderScreen extends StatefulWidget {
+class ReaderScreen extends ConsumerStatefulWidget {
   const ReaderScreen({super.key});
 
   @override
-  State<ReaderScreen> createState() => _ReaderScreenState();
+  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends State<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final selected = <int>{16};
-
-  static const verses = <int, String>{
-    14: 'Y como Moisés levantó la serpiente en el desierto, así es necesario que el Hijo del hombre sea levantado;',
-    15: 'Para que todo aquel que en él creyere, no se pierda, sino que tenga vida eterna.',
-    16: 'Porque de tal manera amó Dios al mundo, que ha dado á su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.',
-    17: 'Porque no envió Dios á su Hijo al mundo para que condene al mundo, mas para que el mundo sea salvo por él.',
-    18: 'El que en él cree, no es condenado; mas el que no cree, ya es condenado, porque no creyó en el nombre del unigénito Hijo de Dios.',
-    19: 'Y esta es la condenación: porque la luz vino al mundo, y los hombres amaron más las tinieblas que la luz; porque sus obras eran malas.',
-    20: 'Porque todo aquel que hace lo malo, aborrece la luz y no viene á la luz, porque sus obras no sean redargüidas.',
-    21: 'Mas el que obra verdad, viene á la luz, para que sus obras sean manifestadas que son hechas en Dios.',
-  };
 
   void toggleVerse(int number) {
     setState(() {
@@ -355,13 +350,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final location = ref.watch(readerLocationProvider);
+    final verses = ref.watch(chapterVersesProvider);
     return LayoutBuilder(
       builder: (context, constraints) {
         final showPanel = constraints.maxWidth >= 1024;
-        final reader = _ReaderDocument(
-          selected: selected,
-          verses: verses,
-          onToggle: toggleVerse,
+        final reader = verses.when(
+          data: (items) => _ReaderDocument(
+            location: location,
+            selected: selected,
+            verses: items,
+            onToggle: toggleVerse,
+            onPrevious: () => _moveChapter(-1),
+            onNext: () => _moveChapter(1),
+            onChoosePassage: _choosePassage,
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('No se pudo cargar la Biblia: $error'),
+            ),
+          ),
         );
         return Scaffold(
           body: Row(
@@ -371,7 +381,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 const VerticalDivider(width: 1),
                 SizedBox(
                   width: math.min(370, constraints.maxWidth * .32),
-                  child: _StudyPanel(selected: selected),
+                  child: _StudyPanel(selected: selected, location: location),
                 ),
               ],
             ],
@@ -415,6 +425,74 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  void _moveChapter(int offset) {
+    ref.read(readerLocationProvider.notifier).move(offset);
+    setState(selected.clear);
+  }
+
+  Future<void> _choosePassage() async {
+    final current = ref.read(readerLocationProvider);
+    var book = current.book;
+    var chapter = current.chapter;
+    final result = await showDialog<ReaderLocation>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Ir a un pasaje'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<BookInfo>(
+                  initialValue: book,
+                  decoration: const InputDecoration(labelText: 'Libro'),
+                  items: [
+                    for (final item in bibleBooks)
+                      DropdownMenuItem(value: item, child: Text(item.name)),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      book = value;
+                      chapter = chapter.clamp(1, book.chapters);
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  key: ValueKey(book.code),
+                  initialValue: chapter,
+                  decoration: const InputDecoration(labelText: 'Capítulo'),
+                  items: [
+                    for (var number = 1; number <= book.chapters; number++)
+                      DropdownMenuItem(value: number, child: Text('$number')),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => chapter = value ?? chapter),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(context, ReaderLocation(book, chapter)),
+              child: const Text('Ir'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    ref.read(readerLocationProvider.notifier).goTo(result.book, result.chapter);
+    setState(selected.clear);
+  }
+
   void _showNoteSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -453,14 +531,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
 class _ReaderDocument extends StatelessWidget {
   const _ReaderDocument({
+    required this.location,
     required this.selected,
     required this.verses,
     required this.onToggle,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onChoosePassage,
   });
 
+  final ReaderLocation location;
   final Set<int> selected;
-  final Map<int, String> verses;
+  final List<BibleVerse> verses;
   final ValueChanged<int> onToggle;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final VoidCallback onChoosePassage;
 
   @override
   Widget build(BuildContext context) {
@@ -473,23 +559,30 @@ class _ReaderDocument extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'Capítulo anterior',
-                onPressed: () {},
+                onPressed: onPrevious,
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
               Expanded(
-                child: Column(
-                  children: [
-                    Text('Juan', style: Theme.of(context).textTheme.titleLarge),
-                    Text(
-                      'Capítulo 3 · RV1909',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ],
+                child: InkWell(
+                  onTap: onChoosePassage,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      Text(
+                        location.book.name,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        'Capítulo ${location.chapter} · RV1909',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               IconButton(
                 tooltip: 'Capítulo siguiente',
-                onPressed: () {},
+                onPressed: onNext,
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
             ],
@@ -509,23 +602,23 @@ class _ReaderDocument extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'El amor de Dios',
+                          '${location.book.name} ${location.chapter}',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 24),
-                        for (final entry in verses.entries)
+                        for (final verse in verses)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 5),
                             child: Material(
-                              color: selected.contains(entry.key)
+                              color: selected.contains(verse.verse)
                                   ? colors.primaryContainer.withValues(
                                       alpha: .75,
                                     )
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               child: InkWell(
-                                onTap: () => onToggle(entry.key),
-                                onLongPress: () => onToggle(entry.key),
+                                onTap: () => onToggle(verse.verse),
+                                onLongPress: () => onToggle(verse.verse),
                                 borderRadius: BorderRadius.circular(10),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -536,7 +629,7 @@ class _ReaderDocument extends StatelessWidget {
                                     TextSpan(
                                       children: [
                                         TextSpan(
-                                          text: '${entry.key}  ',
+                                          text: '${verse.verse}  ',
                                           style: TextStyle(
                                             color: colors.primary,
                                             fontSize: 13,
@@ -544,7 +637,7 @@ class _ReaderDocument extends StatelessWidget {
                                           ),
                                         ),
                                         TextSpan(
-                                          text: entry.value,
+                                          text: verse.body,
                                           style: Theme.of(context)
                                               .textTheme
                                               .bodyLarge
@@ -571,9 +664,10 @@ class _ReaderDocument extends StatelessWidget {
 }
 
 class _StudyPanel extends StatelessWidget {
-  const _StudyPanel({required this.selected});
+  const _StudyPanel({required this.selected, required this.location});
 
   final Set<int> selected;
+  final ReaderLocation location;
 
   @override
   Widget build(BuildContext context) {
@@ -585,7 +679,7 @@ class _StudyPanel extends StatelessWidget {
         Text(
           selected.isEmpty
               ? 'Selecciona un versículo'
-              : 'Juan 3:${selected.toList()..sort()}'
+              : '${location.book.name} ${location.chapter}:${selected.toList()..sort()}'
                     .replaceAll('[', '')
                     .replaceAll(']', ''),
         ),
@@ -651,37 +745,63 @@ class _ColorDot extends StatelessWidget {
   );
 }
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
+  final controller = TextEditingController();
+  Timer? debounce;
   String query = '';
+  bool searching = false;
+  List<BibleVerse> results = const [];
 
-  static const results = [
-    (
-      'Juan 3:16',
-      'Porque de tal manera amó Dios al mundo, que ha dado á su Hijo unigénito...',
-    ),
-    ('1 Juan 4:8', 'El que no ama, no conoce á Dios; porque Dios es amor.'),
-    (
-      'Romanos 5:8',
-      'Mas Dios encarece su caridad para con nosotros, porque siendo aún pecadores...',
-    ),
-  ];
+  @override
+  void dispose() {
+    debounce?.cancel();
+    controller.dispose();
+    super.dispose();
+  }
+
+  void search(String value) {
+    debounce?.cancel();
+    setState(() {
+      query = value;
+      if (value.trim().isEmpty) {
+        results = const [];
+        searching = false;
+      }
+    });
+    if (value.trim().isEmpty) return;
+    debounce = Timer(const Duration(milliseconds: 250), () async {
+      setState(() => searching = true);
+      await ref.read(bibleReadyProvider.future);
+      final found = await ref.read(databaseProvider).search(value);
+      if (!mounted || controller.text != value) return;
+      setState(() {
+        results = found;
+        searching = false;
+      });
+    });
+  }
+
+  void useSuggestion(String value) {
+    controller.text = value;
+    controller.selection = TextSelection.collapsed(offset: value.length);
+    search(value);
+  }
+
+  void openVerse(BibleVerse verse) {
+    final book = bibleBooks.firstWhere((item) => item.code == verse.bookCode);
+    ref.read(readerLocationProvider.notifier).goTo(book, verse.chapter);
+    context.go('/reader');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = results
-        .where(
-          (item) => '${item.$1} ${item.$2}'.toLowerCase().contains(
-            query.toLowerCase(),
-          ),
-        )
-        .toList();
     return PageFrame(
       maxWidth: 900,
       child: Column(
@@ -693,8 +813,9 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           const SizedBox(height: 24),
           TextField(
+            controller: controller,
             autofocus: true,
-            onChanged: (value) => setState(() => query = value),
+            onChanged: search,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search_rounded),
               hintText: 'Ej. Juan 3:16 o “Dios es amor”',
@@ -714,31 +835,32 @@ class _SearchScreenState extends State<SearchScreen> {
                   .map(
                     (item) => ActionChip(
                       label: Text(item),
-                      onPressed: () => setState(() => query = item),
+                      onPressed: () => useSuggestion(item),
                     ),
                   )
                   .toList(),
             ),
           ] else ...[
             Text(
-              '${filtered.length} resultados',
+              searching ? 'Buscando…' : '${results.length} resultados',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            for (final result in filtered)
+            if (searching) const LinearProgressIndicator(),
+            for (final result in results)
               Card(
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(18),
                   title: Text(
-                    result.$1,
+                    result.reference,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(result.$2),
+                    child: Text(result.body),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.go('/reader'),
+                  onTap: () => openVerse(result),
                 ),
               ),
           ],

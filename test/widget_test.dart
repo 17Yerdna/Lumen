@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumen_biblia/adaptive_shell.dart';
 import 'package:lumen_biblia/app.dart';
+import 'package:lumen_biblia/bible_catalog.dart';
+import 'package:lumen_biblia/bible_providers.dart';
+import 'package:lumen_biblia/database.dart';
 
 void main() {
   test('breakpoints are deterministic', () {
@@ -12,6 +15,15 @@ void main() {
     expect(windowClassFor(1023), WindowClass.medium);
     expect(windowClassFor(1024), WindowClass.expanded);
     expect(windowClassFor(1440), WindowClass.expanded);
+  });
+
+  test('Bible references accept books, verses and ranges', () {
+    expect(parseBibleReference('Juan 3:16')?.label, 'Juan 3:16');
+    expect(
+      parseBibleReference('1 Corintios 13:4-7')?.label,
+      '1 Corintios 13:4–7',
+    );
+    expect(parseBibleReference('Salmos 151'), isNull);
   });
 
   for (final testCase in [
@@ -40,10 +52,31 @@ void main() {
     tester.view.physicalSize = const Size(393, 852);
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const ProviderScope(child: LumenApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chapterVersesProvider.overrideWith(
+            (ref) => Stream.value(const [
+              BibleVerse(
+                id: 'JOH.3.16',
+                canonOrder: 42,
+                bookCode: 'JOH',
+                chapter: 3,
+                verse: 16,
+                endVerse: null,
+                reference: 'Juan 3:16',
+                body: 'Porque de tal manera amó Dios al mundo.',
+              ),
+            ]),
+          ),
+        ],
+        child: const LumenApp(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Biblia'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Juan'), findsOneWidget);
     expect(find.textContaining('Porque de tal manera'), findsWidgets);
