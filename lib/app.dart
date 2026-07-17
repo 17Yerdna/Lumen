@@ -10,6 +10,7 @@ import 'screens.dart';
 const lumenGreen = Color(0xFF315C4A);
 const lumenGold = Color(0xFFC98A2E);
 const lumenCream = Color(0xFFFFFBF3);
+const lumenInk = Color(0xFF26332D);
 
 class ThemeModeController extends Notifier<ThemeMode> {
   @override
@@ -23,12 +24,11 @@ final themeModeProvider = NotifierProvider<ThemeModeController, ThemeMode>(
 );
 
 ThemeData lumenTheme(Brightness brightness) {
+  final isLight = brightness == Brightness.light;
   final colorScheme = ColorScheme.fromSeed(
     seedColor: lumenGreen,
     brightness: brightness,
-    surface: brightness == Brightness.light
-        ? lumenCream
-        : const Color(0xFF151A17),
+    surface: isLight ? lumenCream : const Color(0xFF151A17),
   );
 
   return ThemeData(
@@ -36,13 +36,12 @@ ThemeData lumenTheme(Brightness brightness) {
     brightness: brightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: colorScheme.surface,
+    dividerColor: colorScheme.outlineVariant.withValues(alpha: .55),
     cardTheme: CardThemeData(
       elevation: 0,
-      color: brightness == Brightness.light
-          ? const Color(0xFFFFFEFA)
-          : const Color(0xFF1D241F),
+      color: isLight ? const Color(0xFFFFFEFA) : const Color(0xFF1D241F),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         side: BorderSide(
           color: colorScheme.outlineVariant.withValues(alpha: .6),
         ),
@@ -50,14 +49,40 @@ ThemeData lumenTheme(Brightness brightness) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: .45),
+      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: .38),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        side: BorderSide(color: colorScheme.outlineVariant),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    tabBarTheme: TabBarThemeData(
+      indicatorSize: TabBarIndicatorSize.tab,
+      dividerColor: colorScheme.outlineVariant.withValues(alpha: .55),
+      labelColor: colorScheme.primary,
+      unselectedLabelColor: colorScheme.onSurfaceVariant,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+    ),
     navigationBarTheme: NavigationBarThemeData(
       height: 72,
+      backgroundColor: isLight
+          ? const Color(0xFFFFFEFA)
+          : const Color(0xFF1D241F),
       indicatorColor: colorScheme.primaryContainer,
     ),
     navigationRailTheme: NavigationRailThemeData(
@@ -66,26 +91,29 @@ ThemeData lumenTheme(Brightness brightness) {
     ),
     textTheme: ThemeData(brightness: brightness).textTheme.copyWith(
       headlineLarge: TextStyle(
-        fontSize: 34,
-        height: 1.12,
-        fontWeight: FontWeight.w700,
+        fontFamily: 'serif',
+        fontSize: 38,
+        height: 1.08,
+        fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
       headlineMedium: TextStyle(
-        fontSize: 27,
-        height: 1.2,
-        fontWeight: FontWeight.w700,
+        fontFamily: 'serif',
+        fontSize: 29,
+        height: 1.14,
+        fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
       titleLarge: TextStyle(
+        fontFamily: 'serif',
         fontSize: 21,
         height: 1.25,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
       bodyLarge: TextStyle(
         fontSize: 17,
-        height: 1.65,
+        height: 1.7,
         color: colorScheme.onSurface,
       ),
     ),

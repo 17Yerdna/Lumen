@@ -129,7 +129,7 @@ class _DesktopSidebar extends StatelessWidget {
       key: const Key('expanded-navigation'),
       width: 248,
       color: colors.surfaceContainerLow,
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
+      padding: const EdgeInsets.fromLTRB(18, 28, 18, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -147,10 +147,10 @@ class _DesktopSidebar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 36),
           for (var index = 0; index < _destinations.length; index++)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 4),
               child: _SidebarButton(
                 destination: _destinations[index],
                 selected: selectedIndex == index,
@@ -199,12 +199,12 @@ class _SidebarButton extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Material(
       color: selected ? colors.primaryContainer : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
               selected
@@ -236,7 +236,7 @@ class _LumenMark extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: colors.primary,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Icon(
         Icons.auto_stories_rounded,

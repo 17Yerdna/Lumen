@@ -157,6 +157,32 @@ void main() {
     });
   }
 
+  for (final width in [393.0, 1440.0]) {
+    testWidgets('editorial home fits in dark mode at ${width.toInt()}px', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 900);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: emptyUserDataOverrides(),
+          child: MaterialApp(
+            theme: lumenTheme(Brightness.light),
+            darkTheme: lumenTheme(Brightness.dark),
+            themeMode: ThemeMode.dark,
+            home: const HomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('lumen-artwork')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('assistant passage fits a compact screen', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(393, 852);

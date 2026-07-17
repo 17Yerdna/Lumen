@@ -332,24 +332,38 @@ class _BibleCatalog extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.play_circle_outline_rounded),
-                        title: Text(
-                          'Continuar en ${preview.location.book.name} '
-                          '${preview.location.chapter}',
-                        ),
-                        subtitle: Text(
-                          preview.text.isEmpty
-                              ? 'Comienza tu lectura.'
-                              : preview.text,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_rounded),
-                        onTap: () => onContinue(
-                          preview.location.book,
-                          preview.location.chapter,
-                        ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          const Positioned.fill(
+                            child: LumenArtwork(opacity: .12),
+                          ),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            leading: const Icon(
+                              Icons.play_circle_outline_rounded,
+                            ),
+                            title: Text(
+                              'Continuar en ${preview.location.book.name} '
+                              '${preview.location.chapter}',
+                            ),
+                            subtitle: Text(
+                              preview.text.isEmpty
+                                  ? 'Comienza tu lectura.'
+                                  : preview.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: const Icon(Icons.arrow_forward_rounded),
+                            onTap: () => onContinue(
+                              preview.location.book,
+                              preview.location.chapter,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -406,7 +420,9 @@ class _BookGroupsList extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 18, bottom: 10),
                   child: Text(
                     category.name,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
                 GridView.builder(
@@ -421,10 +437,11 @@ class _BookGroupsList extends StatelessWidget {
                   itemCount: category.books.length,
                   itemBuilder: (context, index) {
                     final book = category.books[index];
-                    return OutlinedButton(
+                    return OutlinedButton.icon(
                       key: Key('book-${book.code}'),
                       onPressed: () => onBook(book),
-                      child: Text(
+                      icon: const Icon(Icons.menu_book_outlined, size: 18),
+                      label: Text(
                         book.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -459,37 +476,43 @@ class _ChapterCatalog extends ConsumerWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 16, 20, 12),
-          child: Row(
-            children: [
-              IconButton(
-                key: const Key('chapters-back-books'),
-                tooltip: 'Todos los libros',
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      book.name,
-                      style: Theme.of(context).textTheme.headlineMedium,
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: const Key('chapters-back-books'),
+                    tooltip: 'Todos los libros',
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          book.name,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        const Text('Selecciona un capítulo'),
+                      ],
                     ),
-                    const Text('Selecciona un capítulo'),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         const Divider(height: 1),
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 86,
+              maxCrossAxisExtent: 94,
               mainAxisExtent: 58,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
@@ -596,70 +619,91 @@ class _ReaderDocument extends StatelessWidget {
         Expanded(
           child: SelectionArea(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 80),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 80),
               children: [
                 Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${location.book.name} ${location.chapter}',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 24),
-                        for (final verse in verses)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Material(
-                              color: selected.contains(verse.verse)
-                                  ? colors.primaryContainer.withValues(
-                                      alpha: .75,
-                                    )
-                                  : preferences[verse.id]?.highlightColor !=
-                                        null
-                                  ? Color(
-                                      preferences[verse.id]!.highlightColor!,
-                                    ).withValues(alpha: .45)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              child: InkWell(
-                                onTap: () => onToggle(verse.verse),
-                                onLongPress: () => onToggle(verse.verse),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 7,
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: Card(
+                      key: const Key('reader-paper'),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'RV1909',
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: colors.secondary,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.3,
                                   ),
-                                  child: Text.rich(
-                                    TextSpan(
-                                      children: [
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '${location.book.name} ${location.chapter}',
+                              style: Theme.of(context).textTheme.headlineLarge,
+                            ),
+                            const SizedBox(height: 24),
+                            for (final verse in verses)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Material(
+                                  color: selected.contains(verse.verse)
+                                      ? colors.primaryContainer.withValues(
+                                          alpha: .75,
+                                        )
+                                      : preferences[verse.id]?.highlightColor !=
+                                            null
+                                      ? Color(
+                                          preferences[verse.id]!
+                                              .highlightColor!,
+                                        ).withValues(alpha: .45)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: InkWell(
+                                    onTap: () => onToggle(verse.verse),
+                                    onLongPress: () => onToggle(verse.verse),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 8,
+                                      ),
+                                      child: Text.rich(
                                         TextSpan(
-                                          text: '${verse.verse}  ',
-                                          style: TextStyle(
-                                            color: colors.primary,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w800,
-                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text: '${verse.verse}  ',
+                                              style: TextStyle(
+                                                color: colors.secondary,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: verse.body,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyLarge
+                                                  ?.copyWith(
+                                                    fontFamily: 'serif',
+                                                    fontSize: 20,
+                                                    height: 1.65,
+                                                  ),
+                                            ),
+                                          ],
                                         ),
-                                        TextSpan(
-                                          text: verse.body,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyLarge
-                                              ?.copyWith(fontSize: 19),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -26,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.notifications_none_rounded),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 760;
@@ -65,11 +65,11 @@ class HomeScreen extends ConsumerWidget {
                     );
             },
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 32),
           Text('Tu camino', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 14),
           _StatGrid(stats: stats, noteCount: noteCount),
-          const SizedBox(height: 26),
+          const SizedBox(height: 32),
           Text(
             'Actividad reciente',
             style: Theme.of(context).textTheme.titleLarge,
@@ -92,58 +92,61 @@ class _ContinueReadingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Card(
+      clipBehavior: Clip.antiAlias,
       color: colors.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: LumenArtwork(opacity: .26, alignment: Alignment.centerRight),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.auto_stories_rounded,
-                  color: colors.onPrimaryContainer,
+                Text(
+                  'CONTINUAR LECTURA',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.3,
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+                const SizedBox(height: 28),
+                Text(
+                  '${preview.location.book.name} ${preview.location.chapter}',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
                   child: Text(
-                    'CONTINUAR LECTURA',
+                    preview.text.isEmpty
+                        ? 'Comienza tu lectura.'
+                        : '“${preview.text}”',
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colors.onPrimaryContainer,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: colors.onPrimaryContainer.withValues(alpha: .88),
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.surface,
+                    foregroundColor: colors.primary,
+                  ),
+                  onPressed: onContinue,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Seguir leyendo'),
+                ),
               ],
             ),
-            const SizedBox(height: 28),
-            Text(
-              '${preview.location.book.name} ${preview.location.chapter}',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: colors.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              preview.text.isEmpty
-                  ? 'Comienza tu lectura.'
-                  : '“${preview.text}”',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colors.onPrimaryContainer.withValues(alpha: .8),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onContinue,
-              icon: const Icon(Icons.arrow_forward_rounded),
-              label: const Text('Seguir leyendo'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -173,7 +176,7 @@ class _DailyGoalCard extends StatelessWidget {
                 const Icon(Icons.flag_outlined),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -193,8 +196,8 @@ class _DailyGoalCard extends StatelessWidget {
             const SizedBox(height: 14),
             LinearProgressIndicator(
               value: (read / goal).clamp(0, 1),
-              minHeight: 10,
-              borderRadius: BorderRadius.all(Radius.circular(10)),
+              minHeight: 8,
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
             ),
             const SizedBox(height: 16),
             Text(
@@ -244,7 +247,12 @@ class _StatGrid extends StatelessWidget {
                     padding: const EdgeInsets.all(18),
                     child: Row(
                       children: [
-                        CircleAvatar(child: Icon(stat.$1)),
+                        CircleAvatar(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
+                          child: Icon(stat.$1),
+                        ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(

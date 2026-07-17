@@ -43,6 +43,30 @@ class PageFrame extends StatelessWidget {
   }
 }
 
+class LumenArtwork extends StatelessWidget {
+  const LumenArtwork({
+    this.opacity = 1,
+    this.alignment = Alignment.centerRight,
+    super.key,
+  });
+
+  final double opacity;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Opacity(
+      opacity: opacity,
+      child: Image.asset(
+        'assets/illustrations/lumen_dawn.png',
+        key: const Key('lumen-artwork'),
+        fit: BoxFit.cover,
+        alignment: alignment,
+      ),
+    ),
+  );
+}
+
 class ScreenHeading extends StatelessWidget {
   const ScreenHeading({
     required this.title,
