@@ -105,6 +105,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     noteController: noteController,
                     onExplain: _openAssistant,
                     onMarkRead: _markRead,
+                    onMarkChapterRead: _markChapterRead,
                     onSaveNote: _saveNote,
                     onFavorite: () => _setFavorite(true),
                     onHighlight: _setHighlight,
@@ -113,36 +114,42 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ],
             ],
           ),
-          bottomNavigationBar: !showPanel && selected.isNotEmpty
+          bottomNavigationBar: !showPanel
               ? SafeArea(
                   child: Material(
                     color: Theme.of(context).colorScheme.surfaceContainer,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${selected.length} seleccionado${selected.length == 1 ? '' : 's'}',
+                      child: selected.isEmpty
+                          ? FilledButton.icon(
+                              onPressed: _markChapterRead,
+                              icon: const Icon(Icons.check_circle_rounded),
+                              label: const Text('Marcar capítulo leído'),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${selected.length} seleccionado${selected.length == 1 ? '' : 's'}',
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Marcar leído',
+                                  onPressed: _markRead,
+                                  icon: const Icon(Icons.check_circle_outline),
+                                ),
+                                IconButton(
+                                  tooltip: 'Nota',
+                                  onPressed: _showNoteSheet,
+                                  icon: const Icon(Icons.edit_note_rounded),
+                                ),
+                                IconButton(
+                                  tooltip: 'Explicar',
+                                  onPressed: _openAssistant,
+                                  icon: const Icon(Icons.auto_awesome_outlined),
+                                ),
+                              ],
                             ),
-                          ),
-                          IconButton(
-                            tooltip: 'Marcar leído',
-                            onPressed: _markRead,
-                            icon: const Icon(Icons.check_circle_outline),
-                          ),
-                          IconButton(
-                            tooltip: 'Nota',
-                            onPressed: _showNoteSheet,
-                            icon: const Icon(Icons.edit_note_rounded),
-                          ),
-                          IconButton(
-                            tooltip: 'Explicar',
-                            onPressed: _openAssistant,
-                            icon: const Icon(Icons.auto_awesome_outlined),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 )
@@ -222,6 +229,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Lectura registrada')));
+    }
+  }
+
+  Future<void> _markChapterRead() async {
+    final location = ref.read(readerLocationProvider);
+    await ref
+        .read(databaseProvider)
+        .markChapterRead(location.book.code, location.chapter);
+    ref.invalidate(syncProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Capítulo marcado como leído')),
+      );
     }
   }
 
@@ -398,65 +418,87 @@ class _BibleCatalog extends ConsumerWidget {
   }
 }
 
-class _BookGroupsList extends StatelessWidget {
+class _BookGroupsList extends ConsumerWidget {
   const _BookGroupsList({required this.categories, required this.onBook});
 
   final List<BibleCategory> categories;
   final ValueChanged<BookInfo> onBook;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-    children: [
-      Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final category in categories) ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 18, bottom: 10),
-                  child: Text(
-                    category.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(bibleReadingProgressProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final category in categories) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 18, bottom: 10),
+                    child: Text(
+                      category.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
-                ),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 190,
-                    mainAxisExtent: 58,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 190,
+                          mainAxisExtent: 66,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                        ),
+                    itemCount: category.books.length,
+                    itemBuilder: (context, index) {
+                      final book = category.books[index];
+                      final complete = progress.isBookComplete(book);
+                      final completedChapters = progress.completedChapters(
+                        book,
+                      );
+                      return OutlinedButton.icon(
+                        key: Key('book-${book.code}'),
+                        onPressed: () => onBook(book),
+                        icon: Icon(
+                          complete
+                              ? Icons.check_circle_rounded
+                              : Icons.menu_book_outlined,
+                          size: 18,
+                        ),
+                        label: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              book.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '$completedChapters de ${book.chapters} capítulos',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: category.books.length,
-                  itemBuilder: (context, index) {
-                    final book = category.books[index];
-                    return OutlinedButton.icon(
-                      key: Key('book-${book.code}'),
-                      onPressed: () => onBook(book),
-                      icon: const Icon(Icons.menu_book_outlined, size: 18),
-                      label: Text(
-                        book.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  },
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _ChapterCatalog extends ConsumerWidget {
@@ -473,6 +515,7 @@ class _ChapterCatalog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final last = ref.watch(lastReaderLocationProvider).value;
+    final progress = ref.watch(bibleReadingProgressProvider);
     return Column(
       children: [
         Padding(
@@ -521,8 +564,24 @@ class _ChapterCatalog extends ConsumerWidget {
             itemBuilder: (context, index) {
               final chapter = index + 1;
               final isLast = last?.book == book && last?.chapter == chapter;
-              final child = Text('$chapter');
-              return isLast
+              final isComplete = progress.isChapterComplete(book, chapter);
+              final child = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$chapter'),
+                  if (isComplete) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.check_rounded, size: 16),
+                  ],
+                ],
+              );
+              return isComplete
+                  ? FilledButton(
+                      key: Key('chapter-$chapter'),
+                      onPressed: () => onChapter(chapter),
+                      child: child,
+                    )
+                  : isLast
                   ? FilledButton.tonal(
                       key: Key('chapter-$chapter'),
                       onPressed: () => onChapter(chapter),
@@ -723,6 +782,7 @@ class _StudyPanel extends StatelessWidget {
     required this.noteController,
     required this.onExplain,
     required this.onMarkRead,
+    required this.onMarkChapterRead,
     required this.onSaveNote,
     required this.onFavorite,
     required this.onHighlight,
@@ -733,6 +793,7 @@ class _StudyPanel extends StatelessWidget {
   final TextEditingController noteController;
   final VoidCallback onExplain;
   final VoidCallback onMarkRead;
+  final VoidCallback onMarkChapterRead;
   final VoidCallback onSaveNote;
   final VoidCallback onFavorite;
   final ValueChanged<Color> onHighlight;
@@ -752,6 +813,12 @@ class _StudyPanel extends StatelessWidget {
                     .replaceAll(']', ''),
         ),
         const SizedBox(height: 22),
+        FilledButton.icon(
+          onPressed: onMarkChapterRead,
+          icon: const Icon(Icons.check_circle_rounded),
+          label: const Text('Marcar capítulo leído'),
+        ),
+        const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: selected.isEmpty ? null : onExplain,
           icon: const Icon(Icons.auto_awesome_rounded),

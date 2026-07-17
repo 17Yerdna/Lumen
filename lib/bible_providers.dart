@@ -165,6 +165,47 @@ final readingActivityProvider = StreamProvider<List<ReadingEntry>>(
   (ref) => ref.watch(databaseProvider).watchReadingActivity(),
 );
 
+final chapterProgressProvider = StreamProvider<List<ChapterProgress>>(
+  (ref) => ref.watch(databaseProvider).watchChapterProgress(),
+);
+
+class BibleReadingProgress {
+  BibleReadingProgress(Iterable<ChapterProgress> chapters)
+    : _chapters = {
+        for (final chapter in chapters)
+          '${chapter.bookCode}.${chapter.chapter}': chapter,
+      };
+
+  final Map<String, ChapterProgress> _chapters;
+
+  ChapterProgress? chapter(BookInfo book, int number) =>
+      _chapters['${book.code}.$number'];
+
+  bool isChapterComplete(BookInfo book, int number) =>
+      chapter(book, number)?.isComplete ?? false;
+
+  int completedChapters(BookInfo book) => List.generate(
+    book.chapters,
+    (index) => index + 1,
+  ).where((chapter) => isChapterComplete(book, chapter)).length;
+
+  bool isBookComplete(BookInfo book) =>
+      completedChapters(book) == book.chapters;
+
+  int get completedChapterCount =>
+      _chapters.values.where((chapter) => chapter.isComplete).length;
+
+  int get completedBookCount => bibleBooks.where(isBookComplete).length;
+
+  int get totalChapters =>
+      bibleBooks.fold(0, (total, book) => total + book.chapters);
+}
+
+final bibleReadingProgressProvider = Provider<BibleReadingProgress>((ref) {
+  final chapters = ref.watch(chapterProgressProvider).value ?? const [];
+  return BibleReadingProgress(chapters);
+});
+
 final versePreferencesProvider = StreamProvider<List<VersePreference>>(
   (ref) => ref.watch(databaseProvider).watchPreferences(),
 );

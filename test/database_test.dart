@@ -95,4 +95,36 @@ void main() {
     expect(await database.search('Juan 3'), hasLength(36));
     await database.close();
   });
+
+  test('derives completed chapters from distinct read verses', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.importBibleText(
+      await rootBundle.loadString('assets/bible/spaRV1909_vpl.txt'),
+    );
+
+    await database.markRead('GEN', 1, [1]);
+    await database
+        .into(database.readingActivities)
+        .insert(
+          ReadingActivitiesCompanion.insert(
+            bookCode: 'GEN',
+            chapter: 1,
+            verse: 1,
+            readDay: '2000-01-01',
+          ),
+        );
+    var genesisOne = (await database.watchChapterProgress().first).singleWhere(
+      (chapter) => chapter.bookCode == 'GEN' && chapter.chapter == 1,
+    );
+    expect(genesisOne.readVerses, 1);
+    expect(genesisOne.isComplete, isFalse);
+
+    await database.markChapterRead('GEN', 1);
+    genesisOne = (await database.watchChapterProgress().first).singleWhere(
+      (chapter) => chapter.bookCode == 'GEN' && chapter.chapter == 1,
+    );
+    expect(genesisOne.readVerses, genesisOne.totalVerses);
+    expect(genesisOne.isComplete, isTrue);
+  });
 }

@@ -13,6 +13,7 @@ import 'package:lumen_biblia/screens.dart';
 
 List<Override> emptyUserDataOverrides() => [
   readingActivityProvider.overrideWith((ref) => Stream.value(const [])),
+  chapterProgressProvider.overrideWith((ref) => Stream.value(const [])),
   notesProvider.overrideWith((ref) => Stream.value(const [])),
   versePreferencesProvider.overrideWith((ref) => Stream.value(const [])),
   favoritesProvider.overrideWith((ref) => Stream.value(const [])),
@@ -64,6 +65,32 @@ void main() {
     expect(parseStoredReaderLocation('JOH:3').chapter, 3);
     expect(parseStoredReaderLocation('PSA:151').book, bibleBooks.first);
     expect(parseStoredReaderLocation('not-a-location').chapter, 1);
+  });
+
+  test('a book completes only when all its chapters complete', () {
+    final genesis = bibleBooks.first;
+    final partial = BibleReadingProgress([
+      for (var chapter = 1; chapter < genesis.chapters; chapter++)
+        ChapterProgress(
+          bookCode: genesis.code,
+          chapter: chapter,
+          totalVerses: 1,
+          readVerses: 1,
+        ),
+    ]);
+    expect(partial.completedChapters(genesis), genesis.chapters - 1);
+    expect(partial.isBookComplete(genesis), isFalse);
+
+    final complete = BibleReadingProgress([
+      for (var chapter = 1; chapter <= genesis.chapters; chapter++)
+        ChapterProgress(
+          bookCode: genesis.code,
+          chapter: chapter,
+          totalVerses: 1,
+          readVerses: 1,
+        ),
+    ]);
+    expect(complete.isBookComplete(genesis), isTrue);
   });
 
   test('reader controller persists chapters across book boundaries', () async {

@@ -47,6 +47,22 @@ class ReadingActivities extends Table {
   ];
 }
 
+class ChapterProgress {
+  const ChapterProgress({
+    required this.bookCode,
+    required this.chapter,
+    required this.totalVerses,
+    required this.readVerses,
+  });
+
+  final String bookCode;
+  final int chapter;
+  final int totalVerses;
+  final int readVerses;
+
+  bool get isComplete => totalVerses > 0 && readVerses == totalVerses;
+}
+
 @DataClassName('VersePreference')
 class VersePreferences extends Table {
   TextColumn get verseId => text()();
@@ -342,6 +358,19 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> markChapterRead(String bookCode, int chapter) async {
+    final verses =
+        await (select(bibleVerses)
+              ..where(
+                (row) =>
+                    row.bookCode.equals(bookCode) & row.chapter.equals(chapter),
+              )
+              ..orderBy([(row) => OrderingTerm.asc(row.verse)]))
+            .map((row) => row.verse)
+            .get();
+    await markRead(bookCode, chapter, verses);
+  }
+
   Future<void> saveNote(
     BookInfo book,
     int chapter,
@@ -440,6 +469,33 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<ReadingEntry>> watchReadingActivity() => (select(
     readingActivities,
   )..orderBy([(row) => OrderingTerm.desc(row.createdAt)])).watch();
+
+  Stream<List<ChapterProgress>> watchChapterProgress() =>
+      customSelect(
+        '''
+      SELECT v.book_code, v.chapter, COUNT(DISTINCT v.verse) AS total_verses,
+             COUNT(DISTINCT r.verse) AS read_verses
+      FROM bible_verses v
+      LEFT JOIN reading_activities r
+        ON r.book_code = v.book_code
+       AND r.chapter = v.chapter
+       AND r.verse = v.verse
+      GROUP BY v.book_code, v.chapter
+      ORDER BY MIN(v.canon_order), v.chapter
+    ''',
+        readsFrom: {bibleVerses, readingActivities},
+      ).watch().map(
+        (rows) => rows
+            .map(
+              (row) => ChapterProgress(
+                bookCode: row.read<String>('book_code'),
+                chapter: row.read<int>('chapter'),
+                totalVerses: row.read<int>('total_verses'),
+                readVerses: row.read<int>('read_verses'),
+              ),
+            )
+            .toList(),
+      );
 
   Stream<List<VersePreference>> watchPreferences() =>
       select(versePreferences).watch();

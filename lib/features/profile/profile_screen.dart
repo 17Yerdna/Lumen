@@ -9,6 +9,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.watch(readingActivityProvider).value ?? const <ReadingEntry>[];
     final notes = ref.watch(notesProvider).value ?? const <UserNote>[];
     final stats = calculateReadingStats(activity, DateTime.now());
+    final progress = ref.watch(bibleReadingProgressProvider);
     return PageFrame(
       maxWidth: 1050,
       child: Column(
@@ -30,7 +31,11 @@ class ProfileScreen extends ConsumerWidget {
             onExport: (markdown) => _exportData(context, ref, markdown),
           ),
           const SizedBox(height: 22),
-          _ProfileSummary(stats: stats, noteCount: notes.length),
+          _ProfileSummary(
+            stats: stats,
+            noteCount: notes.length,
+            progress: progress,
+          ),
           const SizedBox(height: 22),
           Card(
             child: Padding(
@@ -171,14 +176,24 @@ class _AccountSummary extends StatelessWidget {
 }
 
 class _ProfileSummary extends StatelessWidget {
-  const _ProfileSummary({required this.stats, required this.noteCount});
+  const _ProfileSummary({
+    required this.stats,
+    required this.noteCount,
+    required this.progress,
+  });
 
   final ReadingStats stats;
   final int noteCount;
+  final BibleReadingProgress progress;
 
   @override
   Widget build(BuildContext context) {
     final items = [
+      (
+        '${progress.completedChapterCount}/${progress.totalChapters}',
+        'Capítulos',
+      ),
+      ('${progress.completedBookCount}', 'Libros concluidos'),
       ('${stats.total}', 'Versículos'),
       ('${stats.currentStreak}', 'Racha actual'),
       ('${stats.bestStreak}', 'Mejor racha'),
